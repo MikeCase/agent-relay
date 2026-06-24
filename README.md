@@ -168,7 +168,7 @@ Agent Relay uses the [Model Context Protocol](https://modelcontextprotocol.io/) 
 }
 ```
 
-Replace `./path/to/agent-relay/mcp` with the actual path to the `mcp/` directory on that machine. If you publish the package to npm, you can use `agent-relay-mcp` as the command.
+Replace `./path/to/agent-relay/mcp` with the actual path to the `mcp/` directory on that machine. If you publish the package to npm, you can use `@splaq/agent-relay-mcp` as the command.
 
 ### 2. Restart your agent
 
