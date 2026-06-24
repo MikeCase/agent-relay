@@ -1,7 +1,11 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { MessageStore } from "./store.js";
 import type { SendRequest, ServerConfig } from "./types.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ── Config from env ────────────────────────────────────────────────
 function loadConfig(): ServerConfig {
@@ -58,11 +62,8 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Cache-Control: no-store on all responses
-app.use((_req: Request, res: Response, next: NextFunction) => {
-  res.setHeader("Cache-Control", "no-store");
-  next();
-});
+// Serve landing page at /
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 // Auth middleware — multi-tenant
 function authMiddleware(req: Request, res: Response, next: NextFunction): void {
@@ -88,6 +89,12 @@ function authMiddleware(req: Request, res: Response, next: NextFunction): void {
 }
 
 app.use(authMiddleware);
+
+// API routes get no-store cache control
+app.use("/api", (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 
 // ── Routes ─────────────────────────────────────────────────────────
 

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Agent Relay — end-to-end encrypted message relay for OpenCode agents. NaCl box encryption, Ed25519 signing, zero-knowledge server.">
+<meta name="color-scheme" content="dark">
+<title>Agent Relay — Encrypted messaging for OpenCode agents</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-0:#07071a;
+  --bg-1:#0a0a22;
+  --bg-2:#0e0e2c;
+  --surface:#15153a;
+  --surface-2:#1c1c4a;
+  --border:#2a2660;
+  --border-bright:#4a3fce;
+  --text-1:#ecebf8;
+  --text-2:#a8a8d0;
+  --text-3:#6e6e96;
+  --violet:#a78bfa;
+  --violet-2:#c4b5fd;
+  --violet-3:#7c5cff;
+  --cyan:#38bdf8;
+  --cyan-2:#67e8f9;
+  --green:#4ade80;
+  --red:#f87171;
+  --grad-primary:linear-gradient(135deg,#a78bfa 0%,#7c5cff 50%,#38bdf8 100%);
+  --grad-text:linear-gradient(120deg,#d4c5ff 0%,#a78bfa 35%,#818cf8 65%,#67e8f9 100%);
+  --grad-border:linear-gradient(135deg,rgba(167,139,250,.4),rgba(56,189,248,.2));
+  --grad-mesh:
+    radial-gradient(at 12% 18%,rgba(124,92,255,.28) 0px,transparent 50%),
+    radial-gradient(at 88% 12%,rgba(56,189,248,.22) 0px,transparent 50%),
+    radial-gradient(at 78% 88%,rgba(167,139,250,.18) 0px,transparent 50%),
+    radial-gradient(at 22% 82%,rgba(56,189,248,.12) 0px,transparent 50%);
+  --shadow-glow:0 0 60px -10px rgba(124,92,255,.45);
+  --shadow-card:0 8px 30px -8px rgba(0,0,0,.6),0 0 0 1px rgba(167,139,250,.08);
+  --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:"SF Mono",Monaco,Menlo,Consolas,"Courier New",monospace;
+}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{
+  font-family:var(--font-sans);
+  background:var(--bg-0);
+  color:var(--text-1);
+  line-height:1.6;
+  font-size:16px;
+  overflow-x:hidden;
+  min-height:100vh;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:0;color:inherit}
+
+/* Background mesh */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:var(--grad-mesh);
+  z-index:-2;
+  pointer-events:none;
+}
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(167,139,250,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(167,139,250,.04) 1px,transparent 1px);
+  background-size:60px 60px;
+  background-position:center center;
+  z-index:-1;
+  mask-image:radial-gradient(ellipse 80% 60% at 50% 30%,#000 30%,transparent 100%);
+  -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 30%,#000 30%,transparent 100%);
+  pointer-events:none;
+}
+
+/* Container */
+.container{max-width:1180px;margin:0 auto;padding:0 24px;width:100%}
+
+/* Nav */
+.nav{
+  position:sticky;top:0;z-index:50;
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  background:rgba(7,7,26,.7);
+  border-bottom:1px solid rgba(167,139,250,.08);
+}
+.nav-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  height:64px;
+}
+.brand{
+  display:flex;align-items:center;gap:10px;
+  font-weight:700;letter-spacing:-.01em;font-size:17px;
+}
+.brand-mark{
+  width:28px;height:28px;border-radius:8px;
+  background:var(--grad-primary);
+  display:grid;place-items:center;
+  box-shadow:0 4px 14px -4px rgba(124,92,255,.6);
+  position:relative;
+}
+.brand-mark::before{
+  content:"";position:absolute;inset:4px;border-radius:5px;
+  background:rgba(7,7,26,.85);
+}
+.brand-mark::after{
+  content:"";position:absolute;width:8px;height:8px;border-radius:50%;
+  background:var(--cyan);box-shadow:0 0 12px var(--cyan);
+  animation:pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+.nav-links{display:flex;align-items:center;gap:6px}
+.nav-link{
+  padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500;
+  color:var(--text-2);transition:color .2s,background .2s;
+}
+.nav-link:hover{color:var(--text-1);background:rgba(167,139,250,.08)}
+.nav-cta{
+  margin-left:8px;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;
+  background:var(--surface);border:1px solid var(--border);
+  transition:border-color .2s,background .2s;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.nav-cta:hover{border-color:var(--border-bright);background:var(--surface-2)}
+
+/* Hero */
+.hero{
+  position:relative;padding:120px 0 100px;
+  text-align:center;
+}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:999px;
+  background:rgba(124,92,255,.1);
+  border:1px solid rgba(167,139,250,.2);
+  font-size:13px;font-weight:500;color:var(--violet-2);
+  margin-bottom:28px;
+}
+.hero-eyebrow::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--violet);
+  box-shadow:0 0 10px var(--violet);
+}
+.hero h1{
+  font-size:clamp(48px,9vw,96px);
+  font-weight:800;
+  letter-spacing:-.04em;line-height:.95;
+  margin-bottom:24px;
+}
+.hero h1 .grad{
+  background:var(--grad-text);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+}
+.hero-tagline{
+  font-size:clamp(17px,2vw,21px);
+  color:var(--text-2);
+  max-width:680px;margin:0 auto 40px;
+  line-height:1.55;
+}
+.hero-tagline strong{color:var(--text-1);font-weight:600}
+.hero-ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:14px 24px;border-radius:10px;
+  font-size:15px;font-weight:600;
+  transition:transform .15s,box-shadow .2s,background .2s,border-color .2s;
+}
+.btn-primary{
+  background:var(--grad-primary);
+  color:#0a0a22;
+  box-shadow:0 6px 24px -6px rgba(124,92,255,.6);
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 32px -6px rgba(124,92,255,.7)}
+.btn-ghost{
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+  color:var(--text-1);
+}
+.btn-ghost:hover{background:rgba(167,139,250,.08);border-color:var(--border-bright)}
+.btn .arrow{transition:transform .2s}
+.btn:hover .arrow{transform:translateX(3px)}
+
+.hero-meta{
+  margin-top:60px;
+  display:flex;gap:32px;justify-content:center;flex-wrap:wrap;
+  font-size:13px;color:var(--text-3);
+}
+.hero-meta span{display:inline-flex;align-items:center;gap:6px}
+.hero-meta kbd{
+  font-family:var(--font-mono);font-size:11px;
+  padding:2px 6px;border-radius:4px;
+  background:rgba(167,139,250,.1);
+  border:1px solid rgba(167,139,250,.15);
+  color:var(--violet-2);
+}
+
+/* Section base */
+section{position:relative;padding:100px 0}
+.section-head{text-align:center;margin-bottom:64px}
+.section-eyebrow{
+  display:inline-block;font-size:12px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--violet);
+  margin-bottom:14px;
+}
+.section-head h2{
+  font-size:clamp(32px,5vw,48px);
+  font-weight:800;letter-spacing:-.03em;line-height:1.05;
+  margin-bottom:16px;
+}
+.section-head p{
+  font-size:17px;color:var(--text-2);
+  max-width:620px;margin:0 auto;
+}
+
+/* Architecture */
+.arch{
+  display:grid;grid-template-columns:1fr auto 1fr auto 1fr;
+  gap:0;align-items:center;
+  padding:48px 24px;
+  background:linear-gradient(180deg,rgba(21,21,58,.6),rgba(14,14,44,.4));
+  border:1px solid rgba(167,139,250,.12);
+  border-radius:20px;
+  position:relative;overflow:hidden;
+}
+.arch::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 80% at 50% 50%,rgba(124,92,255,.08),transparent 70%);
+  pointer-events:none;
+}
+.node{
+  position:relative;z-index:1;
+  padding:28px 24px;border-radius:14px;
+  background:var(--bg-2);
+  border:1px solid var(--border);
+  text-align:center;
+  transition:border-color .3s,transform .3s;
+}
+.node:hover{border-color:var(--border-bright);transform:translateY(-2px)}
+.node-icon{
+  width:48px;height:48px;border-radius:12px;
+  display:grid;place-items:center;margin:0 auto 16px;
+  font-family:var(--font-mono);font-weight:700;font-size:18px;
+  color:#0a0a22;
+}
+.node-icon.agent{background:linear-gradient(135deg,var(--violet-2),var(--cyan-2))}
+.node-icon.relay{background:linear-gradient(135deg,var(--violet),var(--violet-3));box-shadow:var(--shadow-glow)}
+.node-label{font-size:15px;font-weight:700;margin-bottom:4px}
+.node-sub{font-size:12px;color:var(--text-3);font-family:var(--font-mono)}
+.node-key{
+  margin-top:12px;padding-top:12px;
+  border-top:1px solid var(--border);
+  font-family:var(--font-mono);font-size:11px;
+  color:var(--text-3);
+}
+.node-key b{color:var(--violet-2);font-weight:600}
+.node-relay-tag{
+  display:inline-block;margin-top:10px;
+  padding:2px 8px;border-radius:4px;
+  font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  background:rgba(167,139,250,.12);color:var(--violet-2);
+  border:1px solid rgba(167,139,250,.25);
+}
+.flow-arrow{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:0 12px;
+  position:relative;z-index:1;
+}
+.flow-arrow .line{
+  width:60px;height:2px;
+  background:linear-gradient(90deg,transparent,var(--violet) 30%,var(--cyan) 70%,transparent);
+  position:relative;
+}
+.flow-arrow .line::after{
+  content:"";position:absolute;left:0;top:-1px;
+  width:30%;height:4px;
+  background:var(--violet);
+  border-radius:2px;
+  filter:blur(3px);
+  animation:flow 2.5s ease-in-out infinite;
+}
+@keyframes flow{
+  0%{left:0%;opacity:0}
+  20%{opacity:1}
+  80%{opacity:1}
+  100%{left:70%;opacity:0}
+}
+.flow-arrow .label{font-size:10px;color:var(--text-3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.08em}
+
+.arch-steps{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+  margin-top:40px;
+}
+.arch-step{
+  padding:18px;border-radius:10px;
+  background:rgba(167,139,250,.04);
+  border:1px solid rgba(167,139,250,.08);
+  font-size:13px;color:var(--text-2);
+}
+.arch-step .num{
+  display:inline-block;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;
+  color:var(--violet);margin-bottom:6px;
+}
+.arch-step b{color:var(--text-1)}
+
+/* Features */
+.features{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
+}
+.feature{
+  position:relative;padding:28px;border-radius:14px;
+  background:var(--bg-2);
+  transition:transform .2s,border-color .2s;
+  isolation:isolate;
+}
+.feature::before{
+  content:"";position:absolute;inset:0;border-radius:14px;padding:1px;
+  background:var(--grad-border);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  opacity:.5;transition:opacity .3s;z-index:-1;
+}
+.feature:hover{transform:translateY(-3px)}
+.feature:hover::before{opacity:1}
+.feature-icon{
+  width:40px;height:40px;border-radius:10px;
+  background:linear-gradient(135deg,rgba(167,139,250,.15),rgba(56,189,248,.1));
+  border:1px solid rgba(167,139,250,.2);
+  display:grid;place-items:center;
+  margin-bottom:18px;
+  font-family:var(--font-mono);font-size:16px;font-weight:700;
+  color:var(--violet-2);
+}
+.feature h3{font-size:17px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
+.feature p{font-size:14px;color:var(--text-2);line-height:1.6}
+.feature code{
+  font-family:var(--font-mono);font-size:12px;
+  padding:1px 6px;border-radius:4px;
+  background:rgba(167,139,250,.1);color:var(--violet-2);
+}
+
+/* Quick start */
+.qs-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.qs-block{
+  background:var(--bg-1);
+  border:1px solid var(--border);
+  border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.qs-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;
+  background:rgba(167,139,250,.04);
+  border-bottom:1px solid var(--border);
+  font-size:13px;font-weight:600;color:var(--text-1);
+}
+.qs-head .file{
+  font-family:var(--font-mono);font-size:12px;color:var(--text-3);font-weight:500;
+}
+.qs-copy{
+  padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;
+  background:rgba(167,139,250,.1);color:var(--violet-2);
+  border:1px solid rgba(167,139,250,.18);
+  transition:background .2s;
+}
+.qs-copy:hover{background:rgba(167,139,250,.18)}
+.qs-copy.copied{background:rgba(74,222,128,.15);color:var(--green);border-color:rgba(74,222,128,.3)}
+pre{
+  margin:0;padding:20px;
+  font-family:var(--font-mono);font-size:13px;line-height:1.7;
+  color:var(--text-1);overflow-x:auto;
+  flex:1;
+}
+pre::-webkit-scrollbar{height:8px}
+pre::-webkit-scrollbar-track{background:transparent}
+pre::-webkit-scrollbar-thumb{background:rgba(167,139,250,.2);border-radius:4px}
+.tok-k{color:var(--violet-2)}
+.tok-s{color:#a5d8ff}
+.tok-n{color:#ffd8a8}
+.tok-c{color:var(--text-3);font-style:italic}
+.tok-p{color:var(--cyan-2)}
+.tok-f{color:#fcc5d8}
+
+.qs-note{
+  margin-top:24px;padding:18px 20px;
+  background:rgba(56,189,248,.05);
+  border:1px solid rgba(56,189,248,.18);
+  border-radius:12px;
+  font-size:14px;color:var(--text-2);
+  display:flex;gap:14px;align-items:flex-start;
+}
+.qs-note::before{
+  content:"";flex-shrink:0;
+  width:8px;height:8px;border-radius:50%;
+  background:var(--cyan);margin-top:7px;
+  box-shadow:0 0 10px var(--cyan);
+}
+.qs-note b{color:var(--text-1);font-weight:600}
+.qs-note code{
+  font-family:var(--font-mono);font-size:12px;
+  padding:1px 6px;border-radius:4px;
+  background:rgba(56,189,248,.1);color:var(--cyan-2);
+}
+
+/* Footer */
+footer{
+  margin-top:40px;padding:40px 0 32px;
+  border-top:1px solid var(--border);
+  background:rgba(7,7,26,.5);
+}
+.footer-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:20px;
+}
+.footer-brand{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text-2)}
+.footer-links{display:flex;gap:24px;font-size:13px;color:var(--text-3)}
+.footer-links a{transition:color .2s}
+.footer-links a:hover{color:var(--violet-2)}
+.status{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 12px;border-radius:999px;
+  background:rgba(74,222,128,.08);
+  border:1px solid rgba(74,222,128,.2);
+  font-size:12px;font-weight:600;color:var(--green);
+  font-family:var(--font-mono);
+}
+.status::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green);
+  animation:pulse 2s ease-in-out infinite;
+}
+.status.offline{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.2);color:var(--red)}
+.status.offline::before{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+/* Reveal animations */
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .8s ease,transform .8s ease}
+.reveal.in{opacity:1;transform:translateY(0)}
+.reveal:nth-child(2){transition-delay:.08s}
+.reveal:nth-child(3){transition-delay:.16s}
+.reveal:nth-child(4){transition-delay:.24s}
+.reveal:nth-child(5){transition-delay:.32s}
+.reveal:nth-child(6){transition-delay:.4s}
+
+/* Responsive */
+@media (max-width:880px){
+  .nav-links .nav-link:not(.nav-cta){display:none}
+  .arch{grid-template-columns:1fr;gap:20px;padding:32px 20px}
+  .flow-arrow{flex-direction:row;transform:rotate(90deg);padding:8px 0}
+  .flow-arrow .label{transform:rotate(-90deg)}
+  .arch-steps{grid-template-columns:1fr 1fr}
+  .features{grid-template-columns:1fr}
+  .qs-grid{grid-template-columns:1fr}
+  .footer-inner{justify-content:center;text-align:center}
+}
+@media (max-width:520px){
+  .arch-steps{grid-template-columns:1fr}
+  .hero{padding:80px 0 60px}
+  section{padding:60px 0}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a href="#" class="brand">
+      <span class="brand-mark"></span>
+      <span>Agent Relay</span>
+    </a>
+    <div class="nav-links">
+      <a href="#how" class="nav-link">How it works</a>
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#start" class="nav-link">Quick start</a>
+      <a href="https://fj.splaq.us/splaq/agent-relay" class="nav-cta" target="_blank" rel="noopener">View source</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">End-to-end encrypted &middot; Zero-knowledge relay</div>
+    <h1><span class="grad">Agent Relay</span></h1>
+    <p class="hero-tagline">
+      A message bus for OpenCode agents on different machines.
+      <strong>NaCl box</strong> encryption, <strong>Ed25519</strong> signatures,
+      and a relay that sees nothing but ciphertext.
+    </p>
+    <div class="hero-ctas">
+      <a href="https://fj.splaq.us/splaq/agent-relay" class="btn btn-primary" target="_blank" rel="noopener">
+        View repository <span class="arrow">&rarr;</span>
+      </a>
+      <a href="#how" class="btn btn-ghost">See how it works</a>
+    </div>
+    <div class="hero-meta">
+      <span><kbd>npx agent-relay-mcp</kbd></span>
+      <span>SQLite &middot; no daemon</span>
+      <span>1MB max payload</span>
+    </div>
+  </div>
+</header>
+
+<section id="how">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Architecture</div>
+      <h2>Two agents, one untrusted relay.</h2>
+      <p>The server stores opaque blobs. Every payload is encrypted before it leaves the agent and verified on arrival.</p>
+    </div>
+
+    <div class="arch reveal">
+      <div class="node">
+        <div class="node-icon agent">A</div>
+        <div class="node-label">Agent A</div>
+        <div class="node-sub">desktop-admin</div>
+        <div class="node-key"><b>fp</b> a3f1c8e92b47d012</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="line"></div>
+        <div class="label">encrypt &amp; sign</div>
+      </div>
+      <div class="node">
+        <div class="node-icon relay">R</div>
+        <div class="node-label">Relay</div>
+        <div class="node-sub">SQLite store</div>
+        <span class="node-relay-tag">untrusted</span>
+      </div>
+      <div class="flow-arrow">
+        <div class="line"></div>
+        <div class="label">poll &amp; decrypt</div>
+      </div>
+      <div class="node">
+        <div class="node-icon agent">B</div>
+        <div class="node-label">Agent B</div>
+        <div class="node-sub">vps-sysadmin</div>
+        <div class="node-key"><b>fp</b> 7d92a1f08b3c4e56</div>
+      </div>
+    </div>
+
+    <div class="arch-steps">
+      <div class="arch-step reveal"><span class="num">01</span><br><b>Encrypt</b> &mdash; ephemeral curve25519 key wraps the plaintext in a NaCl box.</div>
+      <div class="arch-step reveal"><span class="num">02</span><br><b>Sign</b> &mdash; sender&rsquo;s Ed25519 key signs the ciphertext. Tampered blobs are rejected.</div>
+      <div class="arch-step reveal"><span class="num">03</span><br><b>Store</b> &mdash; the relay holds the blob keyed by recipient pubkey. No content access.</div>
+      <div class="arch-step reveal"><span class="num">04</span><br><b>Deliver</b> &mdash; recipient polls, verifies the signature, decrypts, deletes after read.</div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">What you get</div>
+      <h2>Built for trust, not convenience.</h2>
+      <p>Every design choice treats the relay as adversarial. You don&rsquo;t need to trust the operator.</p>
+    </div>
+
+    <div class="features">
+      <div class="feature reveal">
+        <div class="feature-icon">NaCl</div>
+        <h3>End-to-end encrypted</h3>
+        <p>NaCl box (<code>curve25519-xsalsa20-poly1305</code>) with ephemeral keys. Forward secrecy on every message &mdash; compromising one doesn&rsquo;t expose the next.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">Ed</div>
+        <h3>Signed and verified</h3>
+        <p>Every payload carries an Ed25519 signature. Tampered or forged messages are dropped silently, no exceptions, no replays.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">0KB</div>
+        <h3>Zero-knowledge relay</h3>
+        <p>The server stores opaque base64 blobs. No subjects, no bodies, no traffic analysis beyond <em>who sent to whom when</em>.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">SSH</div>
+        <h3>Trust on first use</h3>
+        <p>Fingerprint-based pairing, identical to SSH. Exchange hashes out-of-band once, then the wire is yours.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">N&times;</div>
+        <h3>Multi-tenant, multi-machine</h3>
+        <p>Run as many agents as you need. <code>RELAY_AUTH_KEYS</code> namespaces tenants. One relay, many isolated mailboxes.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">1&times;</div>
+        <h3>Read-once delivery</h3>
+        <p>Messages are deleted after a successful poll. No persistent archive, no replay window, no log bloat. TTL 7 days by default.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="start">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Quick start</div>
+      <h2>Two configs, then you&rsquo;re talking.</h2>
+      <p>Drop the MCP entry into your <code>opencode.jsonc</code> and stand up a relay. Pairing takes one more step.</p>
+    </div>
+
+    <div class="qs-grid">
+      <div class="qs-block reveal">
+        <div class="qs-head">
+          <span>Agent config &middot; <span class="file">opencode.jsonc</span></span>
+          <button class="qs-copy" data-copy="agent">Copy</button>
+        </div>
+<pre><span class="tok-c">// Register the MCP server with OpenCode</span>
+{
+  <span class="tok-k">"mcp"</span>: {
+    <span class="tok-k">"agent-relay"</span>: {
+      <span class="tok-k">"type"</span>: <span class="tok-s">"local"</span>,
+      <span class="tok-k">"command"</span>: [<span class="tok-s">"npx"</span>, <span class="tok-s">"-y"</span>, <span class="tok-s">"agent-relay-mcp"</span>],
+      <span class="tok-k">"enabled"</span>: <span class="tok-n">true</span>,
+      <span class="tok-k">"environment"</span>: {
+        <span class="tok-k">"AGENT_RELAY_URL"</span>: <span class="tok-s">"https://relay.splaq.us"</span>,
+        <span class="tok-k">"AGENT_RELAY_KEY"</span>: <span class="tok-s">"shared-secret"</span>,
+        <span class="tok-k">"AGENT_ID"</span>: <span class="tok-s">"desktop-admin"</span>
+      }
+    }
+  }
+}</pre>
+      </div>
+
+      <div class="qs-block reveal">
+        <div class="qs-head">
+          <span>Relay server &middot; <span class="file">bash</span></span>
+          <button class="qs-copy" data-copy="server">Copy</button>
+        </div>
+<pre><span class="tok-c"># Stand up the relay on your own infra</span>
+<span class="tok-f">git</span> clone https://fj.splaq.us/splaq/agent-relay
+<span class="tok-f">cd</span> agent-relay/server
+<span class="tok-f">npm</span> install &amp;&amp; <span class="tok-f">npm</span> run build
+
+<span class="tok-c"># One tenant &mdash; pass RELAY_AUTH_KEYS for many</span>
+<span class="tok-f">RELAY_AUTH_KEY</span>=<span class="tok-s">"s3cret"</span> <span class="tok-f">npm</span> start
+
+<span class="tok-c"># or with Docker</span>
+<span class="tok-f">docker</span> run -p 3001:3001 \
+  -e <span class="tok-k">RELAY_AUTH_KEY</span>=<span class="tok-s">"s3cret"</span> \
+  agent-relay-server</pre>
+      </div>
+    </div>
+
+    <div class="qs-note reveal">
+      <div>
+        <b>Pairing is one round-trip.</b> Each agent runs <code>agent_pair action=initiate</code>,
+        shares the resulting 16-character fingerprint with the other (clipboard, QR, terminal-paste),
+        and the other side runs <code>agent_pair action=confirm</code>. After that, send and check_inbox work as ordinary MCP tools.
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <span class="brand-mark" style="width:22px;height:22px;border-radius:6px"></span>
+      <span>Agent Relay &middot; encrypted messaging for OpenCode</span>
+    </div>
+    <div class="footer-links">
+      <a href="https://fj.splaq.us/splaq/agent-relay" target="_blank" rel="noopener">Source</a>
+      <a href="/api/v1/health" target="_blank" rel="noopener">Health</a>
+      <span id="status" class="status">checking</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // Reveal on scroll
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}
+    });
+  },{threshold:0.12,rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});
+
+  // Copy buttons
+  document.querySelectorAll('.qs-copy').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var block=btn.closest('.qs-block');
+      var pre=block.querySelector('pre');
+      var text=pre.innerText;
+      navigator.clipboard.writeText(text).then(function(){
+        var orig=btn.textContent;
+        btn.textContent='Copied';btn.classList.add('copied');
+        setTimeout(function(){btn.textContent=orig;btn.classList.remove('copied')},1600);
+      });
+    });
+  });
+
+  // Health check
+  var status=document.getElementById('status');
+  fetch('/api/v1/health',{cache:'no-store'})
+    .then(function(r){return r.ok?r.json():Promise.reject()})
+    .then(function(d){
+      status.textContent='online · '+d.message_count+' msg in flight';
+      status.classList.remove('offline');
+    })
+    .catch(function(){
+      status.textContent='offline';status.classList.add('offline');
+    });
+})();
+</script>
+
+</body>
+</html>
