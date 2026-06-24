@@ -66,6 +66,19 @@ function ed25519PubToCurve25519(edPubKey: Uint8Array): Uint8Array {
 
   const y = bytesLEToBigint(yBytes);
 
+  // Validate Ed25519 public key point
+  if (y >= P) {
+    throw new Error("Invalid Ed25519 public key: y-coordinate out of range");
+  }
+  // Reject the identity element on Ed25519 (y == 1 mod p)
+  const isIdentity = yBytes.every((b) => b === 0);
+  if (isIdentity) {
+    throw new Error("Invalid Ed25519 public key: identity element");
+  }
+  if (y === 1n) {
+    throw new Error("Invalid Ed25519 public key: identity element");
+  }
+
   // u = (1 + y) / (1 - y) mod p
   const one = 1n;
   const numerator = mod(one + y, P);

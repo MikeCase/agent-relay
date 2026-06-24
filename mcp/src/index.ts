@@ -41,6 +41,17 @@ interface PendingPairing {
   messageId: string;
 }
 const pendingPairings: PendingPairing[] = [];
+const pendingOutboundPairings = new Set<string>(); // pubkeys we've sent pairing requests to
+
+/** Dedup — track processed message IDs to prevent replay attacks */
+const MAX_SEEN_IDS = 10000;
+const seenMessageIds = new Set<string>();
+function trackMessageId(id: string): void {
+  if (seenMessageIds.size >= MAX_SEEN_IDS) {
+    seenMessageIds.clear();
+  }
+  seenMessageIds.add(id);
+}
 
 // ---- Config I/O ----
 
@@ -372,6 +383,13 @@ async function handleCheckInbox(
         new TextDecoder().decode(plaintextBytes),
       );
 
+      // Dedup — reject replayed messages
+      if (seenMessageIds.has(payload.id)) {
+        console.warn(`[agent-relay] Duplicate message ${payload.id} skipped`);
+        continue;
+      }
+      trackMessageId(payload.id);
+
       // Handle pairing messages
       const senderB64 = msg.sender;
 
@@ -403,8 +421,9 @@ async function handleCheckInbox(
       }
 
       if (payload.type === "pairing_ack") {
-        // Automatically confirm ack'ed peer if we were waiting
-        if (!peers.peers[senderB64]) {
+        // Only accept ack if we actually sent a pairing request to this peer
+        if (pendingOutboundPairings.has(senderB64)) {
+          pendingOutboundPairings.delete(senderB64);
           try {
             const ackBody = JSON.parse(payload.body) as {
               alias?: string;
@@ -416,6 +435,10 @@ async function handleCheckInbox(
             peers.peers[senderB64] = payload.from;
             savePeers(peers);
           }
+        } else {
+          console.warn(
+            `[agent-relay] Unsolicited pairing_ack from ${senderB64} ignored`,
+          );
         }
         continue;
       }
@@ -519,6 +542,9 @@ async function handleAgentPair(
             peer_alias,
             payloadB64,
           );
+
+          // Track this outbound pairing so we only accept ack from this peer
+          pendingOutboundPairings.add(peer_alias);
 
           result += `\nPairing request sent to ${peer_alias}`;
         } catch (err) {
