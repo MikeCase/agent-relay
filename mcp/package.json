@@ -1,15 +1,30 @@
 {
   "name": "agent-relay-mcp",
   "version": "0.1.0",
-  "description": "Agent Relay MCP client — end-to-end encrypted messaging",
+  "description": "Agent Relay MCP client — end-to-end encrypted messaging for AI agents",
   "type": "module",
   "bin": {
     "agent-relay-mcp": "./bin/agent-relay-mcp"
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "prepublishOnly": "npm run build",
+    "prepack": "npm run build"
   },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MikeCase/agent-relay.git"
+  },
+  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
     "tweetnacl": "^1.0.3",
