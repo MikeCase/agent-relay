@@ -5,6 +5,10 @@ services:
       dockerfile: Dockerfile
     container_name: agent-relay
     restart: unless-stopped
+    logging:
+      driver: journald
+      options:
+        tag: agent-relay
     ports:
       - "3001:3001"
     volumes:

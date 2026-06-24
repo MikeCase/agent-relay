@@ -64,8 +64,8 @@ RELAY_AUTH_KEY="$(openssl rand -hex 32)" npm start
 
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
-| `RELAY_AUTH_KEYS` | unset | **Yes** | JSON mapping tenant names to keys, e.g. `{"mike":"key1","alice":"key2"}`. Messages isolated per tenant. |
-| `RELAY_AUTH_KEY` | unset | No | Legacy single-tenant. Auto-wrapped as `RELAY_AUTH_KEYS={"default":"<value>"}`. |
+| `RELAY_AUTH_KEYS` | unset | No | Multi-tenant mode. JSON mapping names to keys, e.g. `{"mike":"key1","alice":"key2"}`. Messages isolated per tenant. |
+| `RELAY_AUTH_KEY` | unset | No | Single-tenant mode. Shared secret sent as `X-Relay-Key`. Auto-wrapped as `RELAY_AUTH_KEYS={"default":"<value>"}`. |
 | `PORT` | `3001` | No | HTTP listen port |
 | `HOST` | `0.0.0.0` | No | Bind address |
 | `DB_PATH` | `./relay.db` | No | SQLite database file path |
