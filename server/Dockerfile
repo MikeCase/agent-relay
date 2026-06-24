@@ -13,6 +13,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/package.json ./
+COPY --chown=appuser:appgroup public/ ./public/
 USER appuser
 ENV PORT=3001 \
     HOST=0.0.0.0 \
