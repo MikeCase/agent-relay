@@ -369,6 +369,15 @@ section{position:relative;padding:100px 0}
 }
 .qs-copy:hover{background:rgba(167,139,250,.18)}
 .qs-copy.copied{background:rgba(74,222,128,.15);color:var(--green);border-color:rgba(74,222,128,.3)}
+.qs-tabs{display:flex;gap:2px;padding:6px 6px 0;background:rgba(167,139,250,.03);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.qs-tabs::-webkit-scrollbar{display:none}
+.qs-tab{padding:9px 14px;border-radius:8px 8px 0 0;font-size:13px;font-weight:500;color:var(--text-3);white-space:nowrap;position:relative;transition:color .2s,background .2s;flex-shrink:0}
+.qs-tab:hover{color:var(--text-2);background:rgba(167,139,250,.06)}
+.qs-tab.active{color:var(--text-1);background:var(--bg-1)}
+.qs-tab.active::after{content:"";position:absolute;bottom:-1px;left:10px;right:10px;height:2px;background:var(--grad-primary);border-radius:2px 2px 0 0;box-shadow:0 0 8px rgba(167,139,250,.5)}
+.qs-panes{flex:1;display:flex;flex-direction:column;min-height:0}
+.qs-pane{flex:1;width:100%;margin:0;min-height:0}
+.qs-pane[hidden]{display:none}
 pre{
   margin:0;padding:20px;
   font-family:var(--font-mono);font-size:13px;line-height:1.7;
@@ -602,11 +611,18 @@ footer{
 
     <div class="qs-grid">
       <div class="qs-block reveal">
+        <div class="qs-tabs" role="tablist">
+          <button class="qs-tab active" data-tab="opencode" data-file="opencode.jsonc" role="tab" aria-selected="true">OpenCode</button>
+          <button class="qs-tab" data-tab="claude" data-file="~/.claude/settings.json" role="tab" aria-selected="false">Claude Code</button>
+          <button class="qs-tab" data-tab="cursor" data-file=".cursor/mcp.json" role="tab" aria-selected="false">Cursor</button>
+          <button class="qs-tab" data-tab="generic" data-file="mcp.json" role="tab" aria-selected="false">Any host</button>
+        </div>
         <div class="qs-head">
-          <span>Agent config &middot; <span class="file">opencode.jsonc</span></span>
+          <span>Agent config &middot; <span class="file" id="qs-file">opencode.jsonc</span></span>
           <button class="qs-copy" data-copy="agent">Copy</button>
         </div>
-<pre><span class="tok-c">// Register the MCP server with your agent</span>
+        <div class="qs-panes">
+<pre class="qs-pane" data-tab="opencode"><span class="tok-c">// Register the MCP server with OpenCode</span>
 {
   <span class="tok-k">"mcp"</span>: {
     <span class="tok-k">"agent-relay"</span>: {
@@ -614,13 +630,60 @@ footer{
       <span class="tok-k">"command"</span>: [<span class="tok-s">"npx"</span>, <span class="tok-s">"-y"</span>, <span class="tok-s">"agent-relay-mcp"</span>],
       <span class="tok-k">"enabled"</span>: <span class="tok-n">true</span>,
       <span class="tok-k">"environment"</span>: {
-        <span class="tok-k">"AGENT_RELAY_URL"</span>: <span class="tok-s">"https://relay.splaq.us"</span>,
+        <span class="tok-k">"AGENT_RELAY_URL"</span>: <span class="tok-s">"https://relay.example.com"</span>,
         <span class="tok-k">"AGENT_RELAY_KEY"</span>: <span class="tok-s">"shared-secret"</span>,
         <span class="tok-k">"AGENT_ID"</span>: <span class="tok-s">"desktop-admin"</span>
       }
     }
   }
 }</pre>
+
+<pre class="qs-pane" data-tab="claude" hidden><span class="tok-c">// ~/.claude/settings.json</span>
+{
+  <span class="tok-k">"mcpServers"</span>: {
+    <span class="tok-k">"agent-relay"</span>: {
+      <span class="tok-k">"command"</span>: <span class="tok-s">"npx"</span>,
+      <span class="tok-k">"args"</span>: [<span class="tok-s">"-y"</span>, <span class="tok-s">"agent-relay-mcp"</span>],
+      <span class="tok-k">"env"</span>: {
+        <span class="tok-k">"AGENT_RELAY_URL"</span>: <span class="tok-s">"https://relay.example.com"</span>,
+        <span class="tok-k">"AGENT_RELAY_KEY"</span>: <span class="tok-s">"shared-secret"</span>,
+        <span class="tok-k">"AGENT_ID"</span>: <span class="tok-s">"claude-desktop"</span>
+      }
+    }
+  }
+}</pre>
+
+<pre class="qs-pane" data-tab="cursor" hidden><span class="tok-c">// .cursor/mcp.json (project) or ~/.cursor/mcp.json (global)</span>
+{
+  <span class="tok-k">"mcpServers"</span>: {
+    <span class="tok-k">"agent-relay"</span>: {
+      <span class="tok-k">"type"</span>: <span class="tok-s">"local"</span>,
+      <span class="tok-k">"command"</span>: <span class="tok-s">"npx"</span>,
+      <span class="tok-k">"args"</span>: [<span class="tok-s">"-y"</span>, <span class="tok-s">"agent-relay-mcp"</span>],
+      <span class="tok-k">"env"</span>: {
+        <span class="tok-k">"AGENT_RELAY_URL"</span>: <span class="tok-s">"https://relay.example.com"</span>,
+        <span class="tok-k">"AGENT_RELAY_KEY"</span>: <span class="tok-s">"shared-secret"</span>,
+        <span class="tok-k">"AGENT_ID"</span>: <span class="tok-s">"cursor-editor"</span>
+      }
+    }
+  }
+}</pre>
+
+<pre class="qs-pane" data-tab="generic" hidden><span class="tok-c">// Any MCP host that takes command + args + env</span>
+{
+  <span class="tok-k">"mcpServers"</span>: {
+    <span class="tok-k">"agent-relay"</span>: {
+      <span class="tok-k">"command"</span>: <span class="tok-s">"npx"</span>,
+      <span class="tok-k">"args"</span>: [<span class="tok-s">"-y"</span>, <span class="tok-s">"agent-relay-mcp"</span>],
+      <span class="tok-k">"env"</span>: {
+        <span class="tok-k">"AGENT_RELAY_URL"</span>: <span class="tok-s">"https://relay.example.com"</span>,
+        <span class="tok-k">"AGENT_RELAY_KEY"</span>: <span class="tok-s">"shared-secret"</span>,
+        <span class="tok-k">"AGENT_ID"</span>: <span class="tok-s">"my-agent"</span>
+      }
+    }
+  }
+}</pre>
+        </div>
       </div>
 
       <div class="qs-block reveal">
@@ -681,13 +744,31 @@ footer{
   document.querySelectorAll('.qs-copy').forEach(function(btn){
     btn.addEventListener('click',function(){
       var block=btn.closest('.qs-block');
-      var pre=block.querySelector('pre');
+      var pre=block.querySelector('.qs-pane:not([hidden])')||block.querySelector('pre');
       var text=pre.innerText;
       navigator.clipboard.writeText(text).then(function(){
         var orig=btn.textContent;
         btn.textContent='Copied';btn.classList.add('copied');
         setTimeout(function(){btn.textContent=orig;btn.classList.remove('copied')},1600);
       });
+    });
+  });
+
+  // Tab switching for agent configs
+  document.querySelectorAll('.qs-tab').forEach(function(tab){
+    tab.addEventListener('click',function(){
+      var target=tab.dataset.tab;
+      document.querySelectorAll('.qs-tab').forEach(function(t){
+        t.classList.remove('active');
+        t.setAttribute('aria-selected','false');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected','true');
+      document.querySelectorAll('.qs-pane').forEach(function(p){
+        p.hidden=p.dataset.tab!==target;
+      });
+      var fileEl=document.getElementById('qs-file');
+      if(fileEl)fileEl.textContent=tab.dataset.file||'';
     });
   });
 
