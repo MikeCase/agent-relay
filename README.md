@@ -1,6 +1,6 @@
 # Agent Relay
 
-End-to-end encrypted message relay for [OpenCode](https://opencode.ai) agents across machines, networks, and sessions.
+End-to-end encrypted message relay for AI agents across machines, networks, and sessions.
 
 ```
 ┌─────────────┐          ┌──────────────┐          ┌─────────────┐
@@ -39,9 +39,11 @@ Two parts:
 
 **`server/`** — An HTTP relay server you deploy somewhere both machines can reach (a $5 VPS, a LAN server, a Fly.io instance). It has one SQLite table, three API routes, and zero crypto logic. It stores encrypted blobs and deletes them after first successful delivery.
 
-**`mcp/`** — An MCP server each agent runs locally alongside OpenCode. It generates and stores an Ed25519 keypair on first run, handles all encryption/signing, and exposes three tools (`send_message`, `check_inbox`, `agent_pair`).
+**`mcp/`** — An MCP server each agent runs locally. It generates and stores an Ed25519 keypair on first run, handles all encryption/signing, and exposes three tools (`send_message`, `check_inbox`, `agent_pair`).
 
 The relay is untrusted by design. Even if it's compromised, an attacker sees nothing but `{sender_pubkey, recipient_pubkey, encrypted_blob}` — no message content, no subjects, no sender identities beyond raw public keys.
+
+Agent Relay works with any MCP-compatible client: OpenCode, Claude Code, Cline, Continue.dev, or any custom agent that supports the Model Context Protocol. See the [MCP specification](https://modelcontextprotocol.io/) for compatible clients.
 
 ---
 
@@ -110,10 +112,11 @@ RELAY_AUTH_KEY="$(openssl rand -hex 32)" npm start
 
 The relay is running. Now configure each machine's agent to talk through it.
 
-### 1. Add the MCP server to each agent
+### 1. Configure the MCP server
 
-On each machine, add to the top-level `opencode.json`:
+Agent Relay uses the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), so it works with any MCP-compatible agent. Add the MCP server to your agent's config:
 
+**OpenCode** (`opencode.jsonc`):
 ```jsonc
 {
   "mcp": {
@@ -124,18 +127,52 @@ On each machine, add to the top-level `opencode.json`:
       "environment": {
         "AGENT_RELAY_URL": "https://relay.your-server.com",
         "AGENT_RELAY_KEY": "the-same-secret-you-set-above",
-        "AGENT_ID": "desktop-admin"        // unique name per machine
+        "AGENT_ID": "desktop-admin"
       }
     }
   }
 }
 ```
 
-Replace `./path/to/agent-relay/mcp` with the actual path to the `mcp/` directory on that machine. If you publish the package to npm, you can use `agent-relay-mcp` instead of a path.
+**Claude Code** (`~/.claude/settings.json`):
+```json
+{
+  "mcpServers": {
+    "agent-relay": {
+      "command": "npx",
+      "args": ["-y", "./path/to/agent-relay/mcp"],
+      "env": {
+        "AGENT_RELAY_URL": "https://relay.your-server.com",
+        "AGENT_RELAY_KEY": "the-same-secret",
+        "AGENT_ID": "desktop-admin"
+      }
+    }
+  }
+}
+```
 
-### 2. Restart OpenCode
+**Cline / Continue.dev** (`.vscode/mcp.json` or `~/.config/cline/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "agent-relay": {
+      "command": "npx",
+      "args": ["-y", "./path/to/agent-relay/mcp"],
+      "env": {
+        "AGENT_RELAY_URL": "https://relay.your-server.com",
+        "AGENT_RELAY_KEY": "the-same-secret",
+        "AGENT_ID": "desktop-admin"
+      }
+    }
+  }
+}
+```
 
-Keys are generated **automatically** on first use. The first time any relay tool is called (or when OpenCode starts and loads the MCP server), it:
+Replace `./path/to/agent-relay/mcp` with the actual path to the `mcp/` directory on that machine. If you publish the package to npm, you can use `agent-relay-mcp` as the command.
+
+### 2. Restart your agent
+
+Keys are generated **automatically** on first use. The first time any relay tool is called (or when your agent loads the MCP server), it:
 
 1. Creates `~/.config/agent-relay/` if it doesn't exist
 2. Generates a fresh Ed25519 keypair
@@ -221,14 +258,12 @@ agent_pair action=list
 | `PORT` | `3001` | No | HTTP listen port |
 | `HOST` | `0.0.0.0` | No | Bind address |
 | `DB_PATH` | `./relay.db` | No | Path to SQLite database file |
-| `RELAY_AUTH_KEYS` | unset | **Yes** | JSON object mapping tenant names to auth keys, e.g. `{"mike":"key1","alice":"key2"}`. Each tenant's messages are fully isolated — Alice can't poll Mike's messages. |
+| `RELAY_AUTH_KEYS` | unset | **Yes** | JSON object mapping tenant names to auth keys, e.g. `{"mike":"key1","alice":"key2"}`. Each tenant's messages are fully isolated. |
 | `RELAY_AUTH_KEY` | unset | No | Legacy single-tenant mode. Automatically wrapped as `RELAY_AUTH_KEYS={"default":"<value>"}` if `RELAY_AUTH_KEYS` is not set. |
 | `MESSAGE_TTL_DAYS` | `7` | No | Messages older than this are deleted by the hourly cleanup job. |
 | `MAX_PAYLOAD_BYTES` | `1048576` | No | Maximum message size in bytes (1MB default). |
 
 ### MCP client environment variables
-
-Set in the `environment` block of your `opencode.json` MCP config.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -283,6 +318,33 @@ Manages peer pairings.
 | `confirm` | Confirm a pending pairing by fingerprint. Requires `peer_alias` + `peer_fingerprint`. |
 | `list` | List all known peers (alias + truncated fingerprint) |
 | `remove` | Remove a peer by alias |
+
+---
+
+## Integrating with your agent's instructions
+
+To make your agent use the relay automatically, add instructions to your project's AGENTS.md, CLAUDE.md, or equivalent:
+
+```markdown
+## Agent Relay
+
+This agent can communicate with peers via agent-relay.
+
+### At session start
+Call `check_inbox` before doing anything else. Present any unread messages
+to the user and ask if they want to respond before proceeding.
+
+### During session
+If the user asks to send a message to another agent, use `send_message`.
+If they say "ask vps-sysadmin to do X", send a message and poll with
+`check_inbox` for a response (every 15s, 2-minute timeout).
+
+### Important
+- Messages are read-once from the relay. If you crash after polling,
+  the message is lost. The sender can resend if needed.
+- Always pass `mark_read=true` to avoid re-processing.
+- Never store plaintext messages in logs or memory longer than needed.
+```
 
 ---
 
@@ -396,6 +458,9 @@ The SQLite database is stored in a Docker volume (`relay-data`). It persists acr
 ---
 
 ## FAQ
+
+**Which agents does this work with?**
+Any agent that supports the Model Context Protocol (MCP). This includes OpenCode, Claude Code, Cline, Continue.dev, and custom agents built on MCP SDKs. If your agent can load MCP tools, it can use agent-relay.
 
 **How many agents can connect to the relay?**
 As many as you want. Each agent has a pubkey. Any agent can send to any other agent whose pubkey they know. The relay doesn't track connections or enforce identity. Storage and polling overhead is negligible for a personal fleet.
