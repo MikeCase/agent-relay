@@ -4,3 +4,7 @@ dist/
 .graymatter/
 .cursor/
 .env
+.mcp.json
+AGENTS.md
+CLAUDE.md
+opencode.jsonc
