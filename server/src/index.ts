@@ -1,0 +1,144 @@
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
+import { MessageStore } from "./store.js";
+import type { SendRequest, ServerConfig } from "./types.js";
+
+// ── Config from env ────────────────────────────────────────────────
+function loadConfig(): ServerConfig {
+  return {
+    port: parseInt(process.env.PORT ?? "3001", 10),
+    host: process.env.HOST ?? "0.0.0.0",
+    dbPath: process.env.DB_PATH ?? "./relay.db",
+    relayAuthKey: process.env.RELAY_AUTH_KEY ?? undefined,
+    messageTtlDays: parseInt(process.env.MESSAGE_TTL_DAYS ?? "7", 10),
+    maxPayloadBytes: parseInt(process.env.MAX_PAYLOAD_BYTES ?? "1048576", 10),
+  };
+}
+
+const config = loadConfig();
+const store = new MessageStore(config.dbPath);
+
+// ── App setup ──────────────────────────────────────────────────────
+const app = express();
+
+// JSON body parser with size limit
+app.use(express.json({ limit: config.maxPayloadBytes }));
+
+// CORS — allow all origins for v0
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Relay-Key");
+  if (_req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
+// Cache-Control: no-store on all responses
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
+// Auth middleware
+function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  if (config.relayAuthKey) {
+    const key = req.headers["x-relay-key"];
+    if (key !== config.relayAuthKey) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+  }
+  next();
+}
+
+app.use(authMiddleware);
+
+// ── Routes ─────────────────────────────────────────────────────────
+
+// POST /api/v1/send
+app.post("/api/v1/send", (req: Request, res: Response) => {
+  const body = req.body as SendRequest;
+
+  if (!body.sender || typeof body.sender !== "string") {
+    res.status(400).json({ error: "Missing or invalid field: sender" });
+    return;
+  }
+  if (!body.recipient || typeof body.recipient !== "string") {
+    res.status(400).json({ error: "Missing or invalid field: recipient" });
+    return;
+  }
+  if (!body.payload || typeof body.payload !== "string") {
+    res.status(400).json({ error: "Missing or invalid field: payload" });
+    return;
+  }
+
+  const payloadBytes = Buffer.byteLength(body.payload, "utf-8");
+  if (payloadBytes > config.maxPayloadBytes) {
+    res.status(413).json({
+      error: `Payload exceeds maximum size of ${config.maxPayloadBytes} bytes`,
+    });
+    return;
+  }
+
+  const id = store.insertMessage(body.sender, body.recipient, body.payload);
+  res.status(201).json({ id, status: "stored" });
+});
+
+// GET /api/v1/poll
+app.get("/api/v1/poll", (req: Request, res: Response) => {
+  const recipient = req.query.recipient as string | undefined;
+  if (!recipient) {
+    res.status(400).json({ error: "Missing required query param: recipient" });
+    return;
+  }
+
+  const since = req.query.since as string | undefined;
+  const messages = store.pollMessages(recipient, since);
+  res.status(200).json({ messages });
+});
+
+// GET /api/v1/health
+app.get("/api/v1/health", (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime(),
+    message_count: store.getMessageCount(),
+  });
+});
+
+// ── Periodic cleanup ───────────────────────────────────────────────
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
+const cleanupTimer = setInterval(() => {
+  const before = store.getMessageCount();
+  store.cleanup(config.messageTtlDays);
+  const after = store.getMessageCount();
+  const deleted = before - after;
+  console.log(
+    `[cleanup] deleted ${deleted} messages older than ${config.messageTtlDays} days (${after} remaining)`
+  );
+}, CLEANUP_INTERVAL_MS);
+
+// Don't let the timer keep the process alive
+cleanupTimer.unref();
+
+// ── Graceful shutdown ──────────────────────────────────────────────
+function shutdown(signal: string): void {
+  console.log(`[server] received ${signal}, shutting down...`);
+  clearInterval(cleanupTimer);
+  store.close();
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
+// ── Start ──────────────────────────────────────────────────────────
+app.listen(config.port, config.host, () => {
+  console.log(
+    `[server] Agent Relay listening on ${config.host}:${config.port}`
+  );
+});

@@ -1,0 +1,26 @@
+{
+  "name": "agent-relay-mcp",
+  "version": "0.1.0",
+  "description": "Agent Relay MCP client — end-to-end encrypted messaging",
+  "type": "module",
+  "bin": {
+    "agent-relay-mcp": "./bin/agent-relay-mcp"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.7.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/uuid": "^10.0.0",
+    "@types/node": "^22.9.0",
+    "@types/express": "^5.0.0",
+    "tsx": "^4.19.0"
+  }
+}

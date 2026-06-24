@@ -1,0 +1,21 @@
+services:
+  relay:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: agent-relay
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - relay-data:/data
+    environment:
+      - RELAY_AUTH_KEY=${RELAY_AUTH_KEY:?RELAY_AUTH_KEY is required}
+      - PORT=3001
+      - HOST=0.0.0.0
+      - DB_PATH=/data/relay.db
+      - MESSAGE_TTL_DAYS=${MESSAGE_TTL_DAYS:-7}
+      - MAX_PAYLOAD_BYTES=${MAX_PAYLOAD_BYTES:-1048576}
+
+volumes:
+  relay-data:

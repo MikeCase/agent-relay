@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+import('../dist/index.js').catch((err) => {
+  console.error('Failed to start agent-relay-mcp:', err);
+  process.exit(1);
+});
