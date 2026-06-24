@@ -10,7 +10,8 @@ services:
     volumes:
       - relay-data:/data
     environment:
-      - RELAY_AUTH_KEY=${RELAY_AUTH_KEY:?RELAY_AUTH_KEY is required}
+      - RELAY_AUTH_KEYS=${RELAY_AUTH_KEYS:-}
+      - RELAY_AUTH_KEY=${RELAY_AUTH_KEY:-}
       - PORT=3001
       - HOST=0.0.0.0
       - DB_PATH=/data/relay.db

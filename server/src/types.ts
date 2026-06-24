@@ -31,7 +31,8 @@ export interface ServerConfig {
   port: number;
   host: string;
   dbPath: string;
-  relayAuthKey?: string;
+  tenants: Record<string, string>;
+  tenant?: string;
   messageTtlDays: number;
   maxPayloadBytes: number;
 }

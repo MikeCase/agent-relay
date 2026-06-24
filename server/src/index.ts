@@ -5,11 +5,27 @@ import type { SendRequest, ServerConfig } from "./types.js";
 
 // ── Config from env ────────────────────────────────────────────────
 function loadConfig(): ServerConfig {
+  // Read RELAY_AUTH_KEYS (new) or RELAY_AUTH_KEY (legacy)
+  let tenants: Record<string, string> = {};
+  const authKeysEnv = process.env.RELAY_AUTH_KEYS;
+  const authKeyEnv = process.env.RELAY_AUTH_KEY;
+
+  if (authKeysEnv) {
+    try {
+      tenants = JSON.parse(authKeysEnv);
+    } catch {
+      console.error("RELAY_AUTH_KEYS must be a valid JSON object");
+      process.exit(1);
+    }
+  } else if (authKeyEnv) {
+    tenants = { default: authKeyEnv };
+  }
+
   return {
     port: parseInt(process.env.PORT ?? "3001", 10),
     host: process.env.HOST ?? "0.0.0.0",
     dbPath: process.env.DB_PATH ?? "./relay.db",
-    relayAuthKey: process.env.RELAY_AUTH_KEY ?? undefined,
+    tenants,
     messageTtlDays: parseInt(process.env.MESSAGE_TTL_DAYS ?? "7", 10),
     maxPayloadBytes: parseInt(process.env.MAX_PAYLOAD_BYTES ?? "1048576", 10),
   };
@@ -17,6 +33,12 @@ function loadConfig(): ServerConfig {
 
 const config = loadConfig();
 const store = new MessageStore(config.dbPath);
+
+// Build reverse lookup: key → tenant name
+const keyToTenant = new Map<string, string>();
+for (const [tenant, key] of Object.entries(config.tenants)) {
+  keyToTenant.set(key, tenant);
+}
 
 // ── App setup ──────────────────────────────────────────────────────
 const app = express();
@@ -42,14 +64,25 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Auth middleware
+// Auth middleware — multi-tenant
 function authMiddleware(req: Request, res: Response, next: NextFunction): void {
-  if (config.relayAuthKey) {
-    const key = req.headers["x-relay-key"];
-    if (key !== config.relayAuthKey) {
+  const hasAuth = Object.keys(config.tenants).length > 0;
+
+  if (hasAuth) {
+    const key = req.headers["x-relay-key"] as string | undefined;
+    if (!key) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
+    const tenant = keyToTenant.get(key);
+    if (!tenant) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    res.locals.tenant = tenant;
+  } else {
+    // No auth configured — allow all (dev mode)
+    res.locals.tenant = undefined;
   }
   next();
 }
@@ -83,7 +116,7 @@ app.post("/api/v1/send", (req: Request, res: Response) => {
     return;
   }
 
-  const id = store.insertMessage(body.sender, body.recipient, body.payload);
+  const id = store.insertMessage(body.sender, body.recipient, body.payload, res.locals.tenant as string | undefined);
   res.status(201).json({ id, status: "stored" });
 });
 
@@ -96,7 +129,7 @@ app.get("/api/v1/poll", (req: Request, res: Response) => {
   }
 
   const since = req.query.since as string | undefined;
-  const messages = store.pollMessages(recipient, since);
+  const messages = store.pollMessages(recipient, since, res.locals.tenant as string | undefined);
   res.status(200).json({ messages });
 });
 

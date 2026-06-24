@@ -221,7 +221,8 @@ agent_pair action=list
 | `PORT` | `3001` | No | HTTP listen port |
 | `HOST` | `0.0.0.0` | No | Bind address |
 | `DB_PATH` | `./relay.db` | No | Path to SQLite database file |
-| `RELAY_AUTH_KEY` | unset | **Yes** | Shared secret. All requests must include `X-Relay-Key` header matching this value. Generate with `openssl rand -hex 32`. |
+| `RELAY_AUTH_KEYS` | unset | **Yes** | JSON object mapping tenant names to auth keys, e.g. `{"mike":"key1","alice":"key2"}`. Each tenant's messages are fully isolated — Alice can't poll Mike's messages. |
+| `RELAY_AUTH_KEY` | unset | No | Legacy single-tenant mode. Automatically wrapped as `RELAY_AUTH_KEYS={"default":"<value>"}` if `RELAY_AUTH_KEYS` is not set. |
 | `MESSAGE_TTL_DAYS` | `7` | No | Messages older than this are deleted by the hourly cleanup job. |
 | `MAX_PAYLOAD_BYTES` | `1048576` | No | Maximum message size in bytes (1MB default). |
 
@@ -232,7 +233,7 @@ Set in the `environment` block of your `opencode.json` MCP config.
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `AGENT_RELAY_URL` | **Yes** | Base URL of the relay server (no trailing slash). |
-| `AGENT_RELAY_KEY` | No | Shared secret. Must match the relay's `RELAY_AUTH_KEY`. |
+| `AGENT_RELAY_KEY` | No | Auth key for this agent. Must match one of the keys in the relay's `RELAY_AUTH_KEYS` map (or the legacy `RELAY_AUTH_KEY`). |
 | `AGENT_ID` | **Yes** | Human-readable alias for this agent (e.g. `desktop-admin`, `vps-sysadmin`, `ci-runner`). Used as the display name in message headers and pairing requests. |
 
 ---
