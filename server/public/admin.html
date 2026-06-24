@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Agent Relay — admin dashboard">
+<meta name="color-scheme" content="dark">
+<title>Agent Relay — Admin</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='32' y2='32' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='%23a78bfa'/><stop offset='1' stop-color='%2338bdf8'/></linearGradient></defs><rect width='32' height='32' rx='7' fill='%230a0a22'/><circle cx='9' cy='16' r='4' fill='%237c5cff'/><line x1='13' y1='16' x2='19' y2='16' stroke='url(%23g)' stroke-width='2.5' stroke-linecap='round'/><circle cx='23' cy='16' r='6' fill='%2338bdf8' opacity='0.2'/><circle cx='23' cy='16' r='4' fill='%2338bdf8'/></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-0:#07071a;
+  --bg-1:#0a0a22;
+  --bg-2:#0e0e2c;
+  --surface:#15153a;
+  --surface-2:#1c1c4a;
+  --border:#2a2660;
+  --border-bright:#4a3fce;
+  --text-1:#ecebf8;
+  --text-2:#a8a8d0;
+  --text-3:#6e6e96;
+  --violet:#a78bfa;
+  --violet-2:#c4b5fd;
+  --violet-3:#7c5cff;
+  --cyan:#38bdf8;
+  --cyan-2:#67e8f9;
+  --green:#4ade80;
+  --red:#f87171;
+  --amber:#fbbf24;
+  --grad-primary:linear-gradient(135deg,#a78bfa 0%,#7c5cff 50%,#38bdf8 100%);
+  --grad-text:linear-gradient(120deg,#d4c5ff 0%,#a78bfa 35%,#818cf8 65%,#67e8f9 100%);
+  --grad-border:linear-gradient(135deg,rgba(167,139,250,.4),rgba(56,189,248,.2));
+  --grad-mesh:
+    radial-gradient(at 12% 18%,rgba(124,92,255,.28) 0px,transparent 50%),
+    radial-gradient(at 88% 12%,rgba(56,189,248,.22) 0px,transparent 50%),
+    radial-gradient(at 78% 88%,rgba(167,139,250,.18) 0px,transparent 50%),
+    radial-gradient(at 22% 82%,rgba(56,189,248,.12) 0px,transparent 50%);
+  --shadow-card:0 8px 30px -8px rgba(0,0,0,.6),0 0 0 1px rgba(167,139,250,.08);
+  --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:"SF Mono",Monaco,Menlo,Consolas,"Courier New",monospace;
+}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:var(--font-sans);background:var(--bg-0);color:var(--text-1);line-height:1.5;font-size:15px;overflow-x:hidden;min-height:100vh}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:0;color:inherit}
+input,select{font:inherit}
+
+body::before{content:"";position:fixed;inset:0;background:var(--grad-mesh);z-index:-2;pointer-events:none}
+body::after{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(167,139,250,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.04) 1px,transparent 1px);background-size:60px 60px;z-index:-1;pointer-events:none;mask-image:radial-gradient(ellipse 80% 60% at 50% 30%,#000 30%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 30%,#000 30%,transparent 100%)}
+
+/* Nav */
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);background:rgba(7,7,26,.7);border-bottom:1px solid rgba(167,139,250,.08)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px;padding:0 24px;max-width:1280px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;font-size:16px}
+.brand-mark{width:28px;height:28px;border-radius:8px;background:var(--grad-primary);display:grid;place-items:center;box-shadow:0 4px 14px -4px rgba(124,92,255,.6);position:relative}
+.brand-mark::before{content:"";position:absolute;inset:4px;border-radius:5px;background:rgba(7,7,26,.85)}
+.brand-mark::after{content:"";position:absolute;width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan);animation:pulse 2.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+.brand-tag{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--violet-2);padding:3px 8px;border-radius:5px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.2);margin-left:6px}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-user{font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px}
+.nav-user::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+.nav-signout{font-size:13px;font-weight:500;color:var(--text-2);padding:7px 12px;border-radius:7px;border:1px solid var(--border);transition:all .2s}
+.nav-signout:hover{color:var(--text-1);border-color:var(--border-bright);background:rgba(167,139,250,.06)}
+
+.container{max-width:1280px;margin:0 auto;padding:0 24px;width:100%}
+
+.page-head{margin:40px 0 32px}
+.page-head h1{font-size:32px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.page-head h1 .grad{background:var(--grad-text);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.page-head p{color:var(--text-2);font-size:15px}
+
+/* Stats grid */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:56px}
+.stat{position:relative;padding:22px 24px;border-radius:14px;background:var(--bg-2);isolation:isolate;transition:transform .2s}
+.stat::before{content:"";position:absolute;inset:0;border-radius:14px;padding:1px;background:var(--grad-border);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.4;transition:opacity .3s;z-index:-1}
+.stat:hover{transform:translateY(-2px)}
+.stat:hover::before{opacity:1}
+.stat-label{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.stat-label::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--violet);box-shadow:0 0 6px var(--violet)}
+.stat-label.cyan::before{background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+.stat-label.green::before{background:var(--green);box-shadow:0 0 6px var(--green)}
+.stat-label.amber::before{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.stat-value{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1;font-family:var(--font-sans);background:var(--grad-text);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.stat-sub{font-size:12px;color:var(--text-3);margin-top:8px;font-family:var(--font-mono)}
+
+/* Section */
+.section{margin-bottom:56px}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.section-head h2{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.section-head p{font-size:13px;color:var(--text-3);margin-top:2px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:9px;font-size:14px;font-weight:600;transition:transform .15s,box-shadow .2s,background .2s,border-color .2s;white-space:nowrap}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none !important;box-shadow:none !important}
+.btn-primary{background:var(--grad-primary);color:#0a0a22;box-shadow:0 4px 16px -4px rgba(124,92,255,.5)}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 24px -4px rgba(124,92,255,.65)}
+.btn-ghost{background:rgba(255,255,255,.03);border:1px solid var(--border);color:var(--text-1)}
+.btn-ghost:hover:not(:disabled){background:rgba(167,139,250,.08);border-color:var(--border-bright)}
+.btn-danger{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:var(--red)}
+.btn-danger:hover:not(:disabled){background:rgba(248,113,113,.15);border-color:rgba(248,113,113,.4)}
+.btn-sm{padding:6px 11px;font-size:12px;border-radius:6px}
+.btn-icon{font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;padding:6px 9px}
+
+/* Form */
+.form-card{background:var(--bg-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;position:relative;overflow:hidden}
+.form-card::before{content:"";position:absolute;inset:0;border-radius:12px;padding:1px;background:var(--grad-border);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.5;pointer-events:none}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;font-weight:600;color:var(--text-2);letter-spacing:.02em}
+.field .hint{font-size:11px;color:var(--text-3);font-family:var(--font-mono)}
+.input{width:100%;padding:10px 13px;font-size:14px;font-family:inherit;color:var(--text-1);background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;transition:border-color .2s,box-shadow .2s,background .2s}
+.input:focus{outline:none;border-color:var(--border-bright);background:rgba(167,139,250,.05);box-shadow:0 0 0 3px rgba(167,139,250,.15)}
+.input::placeholder{color:var(--text-3)}
+.input.mono{font-family:var(--font-mono);font-size:13px}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.form-error{margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);font-size:13px;color:var(--red);display:none}
+.form-error.show{display:block}
+
+/* Table */
+.table-wrap{background:var(--bg-1);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:relative}
+.table-wrap::before{content:"";position:absolute;inset:0;border-radius:14px;padding:1px;background:var(--grad-border);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.4;pointer-events:none}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:720px}
+thead{background:linear-gradient(180deg,rgba(167,139,250,.06),rgba(167,139,250,.02));border-bottom:1px solid var(--border)}
+th{text-align:left;padding:13px 18px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--violet-2);white-space:nowrap}
+td{padding:14px 18px;border-bottom:1px solid rgba(42,38,96,.5);color:var(--text-1);vertical-align:middle}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:rgba(167,139,250,.04)}
+tbody tr:last-child td{border-bottom:0}
+.mono{font-family:var(--font-mono);font-size:13px}
+.mono-muted{font-family:var(--font-mono);font-size:13px;color:var(--text-2)}
+.truncate{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:600;letter-spacing:.04em;background:rgba(167,139,250,.1);color:var(--violet-2);border:1px solid rgba(167,139,250,.2);font-family:var(--font-mono)}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--violet)}
+.row-actions{display:flex;gap:6px;justify-content:flex-end}
+.last-seen{color:var(--text-2);font-size:13px;display:flex;align-items:center;gap:8px}
+.last-seen .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+.last-seen.idle .dot{background:var(--text-3);box-shadow:none}
+.last-seen.stale .dot{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.empty-state{padding:48px 24px;text-align:center;color:var(--text-3)}
+.empty-state h3{font-size:16px;font-weight:600;color:var(--text-1);margin-bottom:6px}
+.empty-state p{font-size:13px;margin-bottom:16px}
+
+/* Footer */
+footer{margin-top:64px;padding:28px 0;border-top:1px solid var(--border);background:rgba(7,7,26,.5)}
+.footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--text-3)}
+.footer-links{display:flex;gap:18px}
+.footer-links a{transition:color .2s}
+.footer-links a:hover{color:var(--violet-2)}
+
+/* Login overlay */
+.login-overlay{position:fixed;inset:0;z-index:100;background:rgba(7,7,26,.85);backdrop-filter:blur(24px) saturate(140%);-webkit-backdrop-filter:blur(24px) saturate(140%);display:grid;place-items:center;padding:24px}
+.login-overlay.hidden{display:none}
+.login-card{width:100%;max-width:420px;background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:36px 32px;text-align:center;position:relative;box-shadow:0 24px 60px -12px rgba(0,0,0,.6)}
+.login-card::before{content:"";position:absolute;inset:0;border-radius:18px;padding:1px;background:var(--grad-border);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.6;pointer-events:none}
+.login-mark{margin:0 auto 22px;width:48px;height:48px;border-radius:12px;background:var(--grad-primary);display:grid;place-items:center;box-shadow:0 8px 24px -6px rgba(124,92,255,.6);position:relative}
+.login-mark::before{content:"";position:absolute;inset:6px;border-radius:7px;background:rgba(7,7,26,.85)}
+.login-mark::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:var(--cyan);box-shadow:0 0 16px var(--cyan);animation:pulse 2.5s ease-in-out infinite}
+.login-card h2{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+.login-card .sub{font-size:14px;color:var(--text-2);margin-bottom:24px}
+.login-form{display:flex;flex-direction:column;gap:12px;text-align:left}
+.login-form .input{padding:12px 14px;font-family:var(--font-mono);font-size:13px;letter-spacing:.02em}
+.login-form .input.error{border-color:rgba(248,113,113,.4);box-shadow:0 0 0 3px rgba(248,113,113,.1)}
+.login-form .err{font-size:12px;color:var(--red);margin-top:-4px;display:none}
+.login-form .err.show{display:block}
+.login-submit{width:100%;justify-content:center;padding:12px;margin-top:4px}
+.login-note{margin-top:18px;font-size:12px;color:var(--text-3);line-height:1.5}
+.login-note code{font-family:var(--font-mono);font-size:11px;padding:1px 5px;border-radius:4px;background:rgba(167,139,250,.1);color:var(--violet-2)}
+.login-disabled{padding:8px 0 0}
+.login-disabled h3{font-size:18px;font-weight:700;margin-bottom:8px}
+.login-disabled p{font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:0}
+
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;z-index:90;background:rgba(7,7,26,.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:grid;place-items:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-backdrop.open{opacity:1;pointer-events:auto}
+.modal{width:100%;max-width:440px;background:var(--bg-1);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:0 20px 50px -10px rgba(0,0,0,.6);transform:translateY(8px) scale(.98);transition:transform .2s;position:relative}
+.modal-backdrop.open .modal{transform:translateY(0) scale(1)}
+.modal::before{content:"";position:absolute;inset:0;border-radius:14px;padding:1px;background:var(--grad-border);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.5;pointer-events:none}
+.modal-wide{max-width:520px}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.modal h3{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.modal p{font-size:14px;color:var(--text-2);line-height:1.55}
+.modal p b{color:var(--text-1)}
+.modal-close{width:28px;height:28px;border-radius:6px;color:var(--text-3);font-size:18px;display:grid;place-items:center;flex-shrink:0;transition:all .2s}
+.modal-close:hover{color:var(--text-1);background:rgba(167,139,250,.08)}
+.modal-body{margin-bottom:20px}
+.modal-foot{display:flex;gap:10px;justify-content:flex-end}
+.modal-err{padding:10px 12px;border-radius:8px;background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);font-size:13px;color:var(--red);margin-bottom:14px;display:none}
+.modal-err.show{display:block}
+
+/* Key display */
+.key-display{padding:14px;border-radius:10px;background:rgba(0,0,0,.4);border:1px solid rgba(74,222,128,.25);display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:13px;margin:14px 0;word-break:break-all}
+.key-display code{flex:1;color:var(--cyan-2);user-select:all}
+.key-display .copy{flex-shrink:0;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;color:var(--text-1);background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.25);font-family:var(--font-sans);cursor:pointer;transition:background .2s}
+.key-display .copy:hover{background:rgba(167,139,250,.25)}
+.key-warning{font-size:13px;color:var(--amber);background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.key-warning::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber);margin-top:7px;flex-shrink:0;box-shadow:0 0 6px var(--amber)}
+
+/* Hide main until authed */
+body.locked .app{display:none}
+body:not(.locked) .login-overlay{display:none}
+body.admin-disabled .app{display:none}
+body.admin-disabled .login-overlay{display:grid}
+
+/* Responsive */
+@media (max-width:980px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .form-row{grid-template-columns:1fr}
+}
+@media (max-width:680px){
+  .nav-user{display:none}
+  .stats{grid-template-columns:1fr;gap:12px}
+  .section-head{align-items:flex-start;flex-direction:column}
+  .page-head h1{font-size:26px}
+  .footer-inner{justify-content:center;text-align:center}
+}
+</style>
+</head>
+<body class="locked">
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="brand">
+      <span class="brand-mark"></span>
+      <span>Agent Relay</span>
+      <span class="brand-tag">Admin</span>
+    </a>
+    <div class="nav-right">
+      <span class="nav-user">authenticated</span>
+      <button class="nav-signout" id="signout">Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<!-- Login overlay -->
+<div class="login-overlay" id="login">
+  <div class="login-card" id="loginCard">
+    <div class="login-mark"></div>
+    <h2>Admin access</h2>
+    <p class="sub">Enter the admin key to manage tenants and agents.</p>
+    <form class="login-form" id="loginForm" autocomplete="off">
+      <input type="password" class="input" id="loginKey" placeholder="Admin key" autofocus>
+      <div class="err" id="loginErr">Key not recognised. Check the value and try again.</div>
+      <button type="submit" class="btn btn-primary login-submit" id="loginSubmit">Authenticate</button>
+    </form>
+    <p class="login-note">Stored in <code>sessionStorage</code> &mdash; cleared when this tab closes.</p>
+  </div>
+</div>
+
+<!-- Main app -->
+<main class="app">
+  <div class="container">
+
+    <div class="page-head">
+      <h1><span class="grad">Admin dashboard</span></h1>
+      <p>Manage tenants, agents, and relay operations.</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Tenants</div>
+        <div class="stat-value" id="stat-tenants">&mdash;</div>
+        <div class="stat-sub" id="stat-tenants-sub">&nbsp;</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label cyan">Agents</div>
+        <div class="stat-value" id="stat-agents">&mdash;</div>
+        <div class="stat-sub" id="stat-agents-sub">&nbsp;</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label green">Messages</div>
+        <div class="stat-value" id="stat-messages">&mdash;</div>
+        <div class="stat-sub" id="stat-messages-sub">in flight</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label amber">Uptime</div>
+        <div class="stat-value" id="stat-uptime">&mdash;</div>
+        <div class="stat-sub" id="stat-uptime-sub">&nbsp;</div>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Tenants</h2>
+          <p>Each tenant has its own API key. Agents send it as the <code style="font-family:var(--font-mono);font-size:11px;background:rgba(167,139,250,.1);padding:1px 5px;border-radius:4px;color:var(--violet-2)">X-Relay-Key</code> header.</p>
+        </div>
+        <button class="btn btn-primary" id="newTenantBtn">+ New tenant</button>
+      </div>
+
+      <div class="form-card" id="createForm" style="display:none">
+        <div class="form-row">
+          <div class="field">
+            <label for="t-name">Tenant name (slug)</label>
+            <input type="text" class="input" id="t-name" placeholder="e.g. vps-team" autocomplete="off">
+            <span class="hint">lowercase, hyphens. Used in the URL.</span>
+          </div>
+          <div class="field">
+            <label for="t-display">Display name</label>
+            <input type="text" class="input" id="t-display" placeholder="e.g. Production VPS agents" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-error" id="createErr"></div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" id="cancelCreate">Cancel</button>
+          <button class="btn btn-primary" id="submitCreate">Create tenant</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="scroll-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Key prefix</th>
+                <th>Agents</th>
+                <th>Messages</th>
+                <th>Created</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tenantsBody">
+              <tr><td colspan="6"><div class="empty-state"><p>Loading&hellip;</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Agents</h2>
+          <p>Public keys registered on this relay. The agent ID is local to each agent&rsquo;s config.</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="scroll-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Display name</th>
+                <th>Public key</th>
+                <th>Tenant</th>
+                <th>Last seen</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="agentsBody">
+              <tr><td colspan="5"><div class="empty-state"><p>Loading&hellip;</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- Modals -->
+
+<!-- Delete tenant confirm -->
+<div class="modal-backdrop" id="deleteTenantModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="deleteTenantTitle">Delete tenant?</h3>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="deleteTenantBody">This will revoke the key immediately.</p>
+      <div class="modal-err" id="deleteTenantErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+      <button class="btn btn-danger" id="deleteTenantConfirm">Delete tenant</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rotate key confirm -->
+<div class="modal-backdrop" id="rotateModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Rotate tenant key</h3>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>Generating a new key for <b id="rotateName">&hellip;</b>. The current key will be invalidated immediately.</p>
+      <p style="margin-top:10px">Share the new key with all agents using this tenant. They will fail to send or poll until updated.</p>
+      <div class="modal-err" id="rotateErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+      <button class="btn btn-primary" id="rotateConfirm">Rotate key</button>
+    </div>
+  </div>
+</div>
+
+<!-- New key reveal (used after create + rotate) -->
+<div class="modal-backdrop" id="keyModal">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h3 id="keyTitle">Tenant key</h3>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="keySubtitle">Copy this key now &mdash; it will not be shown again.</p>
+      <div class="key-display">
+        <code id="keyCode">&hellip;</code>
+        <button class="copy" id="keyCopy">Copy</button>
+      </div>
+      <div class="key-warning">Store this in your secret manager or distribute to agents out-of-band. The relay only stores a hash &mdash; it cannot recover the key.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" data-close>I&rsquo;ve saved it</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete agent confirm -->
+<div class="modal-backdrop" id="deleteAgentModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="deleteAgentTitle">Delete agent?</h3>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="deleteAgentBody">This removes the agent record. The agent&rsquo;s pubkey will need to be re-registered to send or poll.</p>
+      <div class="modal-err" id="deleteAgentErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+      <button class="btn btn-danger" id="deleteAgentConfirm">Delete agent</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="container footer-inner">
+    <span>Agent Relay &middot; admin dashboard</span>
+    <div class="footer-links">
+      <a href="/">Public site</a>
+      <a href="/api/v1/health" target="_blank" rel="noopener">Health</a>
+      <a href="https://fj.splaq.us/splaq/agent-relay" target="_blank" rel="noopener">Source</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var body=document.body;
+  var STORAGE_KEY="admin-key";
+  var state={adminKey:null,tenants:[],agents:[]};
+
+  // ── Utilities ──
+
+  function escapeHtml(s){
+    if(s==null)return "";
+    return String(s).replace(/[&<>"']/g,function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function formatDate(iso){
+    if(!iso)return "—";
+    return iso.substring(0,10);
+  }
+
+  function formatRelative(iso){
+    if(!iso)return {text:"never",cls:"idle"};
+    var t=new Date(iso).getTime();
+    if(isNaN(t))return {text:"—",cls:"idle"};
+    var diff=Date.now()-t;
+    var min=Math.floor(diff/60000);
+    if(min<1)return {text:"just now",cls:""};
+    if(min<60)return {text:min+" min ago",cls:""};
+    var hr=Math.floor(min/60);
+    if(hr<24)return {text:hr+" hour"+(hr>1?"s":"")+" ago",cls:hr<4?"":"stale"};
+    var day=Math.floor(hr/24);
+    return {text:day+" day"+(day>1?"s":"")+" ago",cls:"stale"};
+  }
+
+  function formatUptime(seconds){
+    if(!seconds&&seconds!==0)return "—";
+    var d=Math.floor(seconds/86400);
+    var h=Math.floor((seconds%86400)/3600);
+    var m=Math.floor((seconds%3600)/60);
+    if(d>0)return d+"d "+h+"h";
+    if(h>0)return h+"h "+m+"m";
+    return m+"m";
+  }
+
+  // ── API helper ──
+  // Adds X-Admin-Key header. On 401 → lock. On 404 → admin disabled. On 5xx → throw with message.
+  async function api(method,path,body){
+    var headers={"X-Admin-Key":state.adminKey};
+    if(body!==undefined)headers["Content-Type"]="application/json";
+    var res;
+    try{
+      res=await fetch(path,{method:method,headers:headers,body:body!==undefined?JSON.stringify(body):undefined});
+    }catch(e){
+      throw new Error("Network error — is the relay reachable?");
+    }
+    if(res.status===401){lock();throw new Error("Unauthorized")}
+    if(res.status===404){showAdminDisabled();throw new Error("Admin disabled")}
+    if(!res.ok){
+      var msg="HTTP "+res.status;
+      try{var j=await res.json();if(j&&j.error)msg=j.error}catch(e){}
+      throw new Error(msg);
+    }
+    if(res.status===204)return null;
+    return res.json();
+  }
+
+  // ── Auth state ──
+
+  function lock(){
+    state.adminKey=null;
+    sessionStorage.removeItem(STORAGE_KEY);
+    body.classList.add("locked");
+    body.classList.remove("admin-disabled");
+    setTimeout(function(){var k=document.getElementById("loginKey");if(k)k.focus()},50);
+  }
+
+  function showAdminDisabled(){
+    body.classList.add("admin-disabled");
+    var card=document.getElementById("loginCard");
+    card.innerHTML='<div class="login-mark"></div><h2>Admin disabled</h2><p class="sub">The admin panel is not configured on this server.</p><div class="login-disabled"><p>Set the <code>ADMIN_KEY</code> environment variable on the relay server to enable the admin API. All admin routes return 404 when this is unset.</p></div>';
+  }
+
+  // Bootstrap: if a key is in sessionStorage, validate it.
+  async function bootstrap(){
+    var saved=sessionStorage.getItem(STORAGE_KEY);
+    if(!saved){
+      body.classList.add("locked");
+      setTimeout(function(){var k=document.getElementById("loginKey");if(k)k.focus()},50);
+      return;
+    }
+    state.adminKey=saved;
+    try{
+      var data=await fetch("/api/v1/admin/check",{headers:{"X-Admin-Key":saved}});
+      if(data.status===404){showAdminDisabled();return}
+      if(data.status===401){lock();return}
+      if(!data.ok){lock();return}
+      var j=await data.json();
+      applyStats(j.stats);
+      body.classList.remove("locked");
+      await loadAll();
+    }catch(e){
+      // network error during bootstrap — keep locked
+      lock();
+      showLoginError("Cannot reach the server: "+e.message);
+    }
+  }
+
+  async function attemptLogin(key){
+    var errEl=document.getElementById("loginErr");
+    var inputEl=document.getElementById("loginKey");
+    var submitBtn=document.getElementById("loginSubmit");
+    errEl.classList.remove("show");
+    inputEl.classList.remove("error");
+    submitBtn.disabled=true;
+    submitBtn.textContent="Checking…";
+    try{
+      var res=await fetch("/api/v1/admin/check",{headers:{"X-Admin-Key":key}});
+      if(res.status===404){showAdminDisabled();return}
+      if(res.status===401){inputEl.classList.add("error");errEl.classList.add("show");return}
+      if(!res.ok){errEl.textContent="Server returned "+res.status;errEl.classList.add("show");return}
+      var j=await res.json();
+      state.adminKey=key;
+      sessionStorage.setItem(STORAGE_KEY,key);
+      applyStats(j.stats);
+      body.classList.remove("locked");
+      await loadAll();
+    }catch(e){
+      errEl.textContent=e.message||"Network error";
+      errEl.classList.add("show");
+    }finally{
+      submitBtn.disabled=false;
+      submitBtn.textContent="Authenticate";
+    }
+  }
+
+  function showLoginError(msg){
+    var errEl=document.getElementById("loginErr");
+    if(!errEl)return;
+    errEl.textContent=msg;
+    errEl.classList.add("show");
+  }
+
+  // ── Loaders ──
+
+  async function loadAll(){
+    await Promise.all([loadTenants(),loadAgents(),loadStats()]);
+  }
+
+  async function loadTenants(){
+    try{
+      var data=await api("GET","/api/v1/admin/tenants");
+      state.tenants=data.tenants||[];
+      renderTenants();
+    }catch(e){/* state shown via api() helper */}
+  }
+
+  async function loadAgents(){
+    try{
+      var data=await api("GET","/api/v1/admin/agents");
+      state.agents=data.agents||[];
+      renderAgents();
+    }catch(e){}
+  }
+
+  async function loadStats(){
+    try{
+      var data=await api("GET","/api/v1/admin/stats");
+      applyStats({
+        tenants:data.tenant_count,
+        agents:data.agent_count,
+        messages:data.message_count,
+        uptime:data.uptime
+      });
+    }catch(e){}
+  }
+
+  function applyStats(s){
+    if(!s)return;
+    if(typeof s.tenants!=="undefined")document.getElementById("stat-tenants").textContent=s.tenants;
+    if(typeof s.agents!=="undefined")document.getElementById("stat-agents").textContent=s.agents;
+    if(typeof s.messages!=="undefined")document.getElementById("stat-messages").textContent=s.messages;
+    if(typeof s.uptime!=="undefined")document.getElementById("stat-uptime").textContent=formatUptime(s.uptime);
+  }
+
+  // ── Render ──
+
+  function renderTenants(){
+    var body=document.getElementById("tenantsBody");
+    if(!state.tenants.length){
+      body.innerHTML='<tr><td colspan="6"><div class="empty-state"><h3>No tenants yet</h3><p>Create your first tenant to start issuing API keys to agents.</p><button class="btn btn-primary" onclick="document.getElementById(\'newTenantBtn\').click()">+ New tenant</button></div></td></tr>';
+      return;
+    }
+    body.innerHTML=state.tenants.map(function(t){
+      return '<tr>'
+        +'<td><b>'+escapeHtml(t.display_name||t.name)+'</b>'
+          +(t.display_name?'<div style="font-size:11px;color:var(--text-3);font-family:var(--font-mono);margin-top:2px">'+escapeHtml(t.name)+'</div>':'')
+        +'</td>'
+        +'<td><span class="mono-muted">'+escapeHtml(t.key_prefix||"—")+'</span></td>'
+        +'<td>'+escapeHtml(t.agent_count||0)+'</td>'
+        +'<td>'+escapeHtml(t.message_count||0)+'</td>'
+        +'<td><span class="mono-muted" style="color:var(--text-3)">'+escapeHtml(formatDate(t.created_at))+'</span></td>'
+        +'<td><div class="row-actions">'
+          +'<button class="btn btn-ghost btn-sm btn-icon" data-rotate="'+escapeHtml(t.id)+'" data-name="'+escapeHtml(t.name)+'">Rotate</button>'
+          +'<button class="btn btn-danger btn-sm btn-icon" data-delete-tenant="'+escapeHtml(t.id)+'" data-name="'+escapeHtml(t.name)+'">Delete</button>'
+        +'</div></td>'
+      +'</tr>';
+    }).join("");
+  }
+
+  function renderAgents(){
+    var body=document.getElementById("agentsBody");
+    if(!state.agents.length){
+      body.innerHTML='<tr><td colspan="5"><div class="empty-state"><h3>No agents registered</h3><p>Agents are registered automatically when they first send or poll through the relay. Or you can pre-register them in the tenant detail view.</p></div></td></tr>';
+      return;
+    }
+    body.innerHTML=state.agents.map(function(a){
+      var ls=formatRelative(a.last_seen_at);
+      return '<tr>'
+        +'<td><b>'+escapeHtml(a.display_name||"—")+'</b></td>'
+        +'<td><span class="truncate mono-muted" title="'+escapeHtml(a.pubkey)+'">'+escapeHtml(truncatePubkey(a.pubkey))+'</span></td>'
+        +'<td><span class="pill">'+escapeHtml(a.tenant_name||"—")+'</span></td>'
+        +'<td><span class="last-seen '+ls.cls+'"><span class="dot"></span>'+escapeHtml(ls.text)+'</span></td>'
+        +'<td><div class="row-actions">'
+          +'<button class="btn btn-danger btn-sm btn-icon" data-delete-agent="'+escapeHtml(a.id)+'" data-tenant="'+escapeHtml(a.tenant_id)+'" data-name="'+escapeHtml(a.display_name||"")+'">Delete</button>'
+        +'</div></td>'
+      +'</tr>';
+    }).join("");
+  }
+
+  function truncatePubkey(pk){
+    if(!pk)return "—";
+    if(pk.length<=24)return pk;
+    return pk.substring(0,20)+"…";
+  }
+
+  // ── Modal helpers ──
+
+  function openModal(id){document.getElementById(id).classList.add("open")}
+  function closeModal(id){document.getElementById(id).classList.remove("open")}
+
+  // Generic close handlers
+  document.addEventListener("click",function(e){
+    var btn=e.target.closest("[data-close]");
+    if(btn){
+      var m=btn.closest(".modal-backdrop");
+      if(m)closeModal(m.id);
+    }
+  });
+  document.querySelectorAll(".modal-backdrop").forEach(function(m){
+    m.addEventListener("click",function(e){if(e.target===m)closeModal(m.id)});
+  });
+  document.addEventListener("keydown",function(e){
+    if(e.key==="Escape"){
+      document.querySelectorAll(".modal-backdrop.open").forEach(function(m){closeModal(m.id)});
+    }
+  });
+
+  // ── Login form ──
+
+  document.getElementById("loginForm").addEventListener("submit",function(e){
+    e.preventDefault();
+    var v=document.getElementById("loginKey").value.trim();
+    if(!v)return;
+    attemptLogin(v);
+  });
+  document.getElementById("loginKey").addEventListener("input",function(){
+    this.classList.remove("error");
+    document.getElementById("loginErr").classList.remove("show");
+  });
+  document.getElementById("signout").addEventListener("click",function(){
+    lock();
+    document.getElementById("loginKey").value="";
+  });
+
+  // ── Create tenant form ──
+
+  var createForm=document.getElementById("createForm");
+  document.getElementById("newTenantBtn").addEventListener("click",function(){
+    var show=createForm.style.display==="none";
+    createForm.style.display=show?"block":"none";
+    if(show){
+      document.getElementById("t-name").value="";
+      document.getElementById("t-display").value="";
+      document.getElementById("createErr").classList.remove("show");
+      setTimeout(function(){document.getElementById("t-name").focus()},50);
+    }
+  });
+  document.getElementById("cancelCreate").addEventListener("click",function(){
+    createForm.style.display="none";
+    document.getElementById("createErr").classList.remove("show");
+  });
+  document.getElementById("submitCreate").addEventListener("click",async function(){
+    var name=document.getElementById("t-name").value.trim();
+    var display=document.getElementById("t-display").value.trim();
+    var errEl=document.getElementById("createErr");
+    var btn=document.getElementById("submitCreate");
+    errEl.classList.remove("show");
+    if(!name||!/^[a-z0-9][a-z0-9-]{1,40}$/.test(name)){
+      errEl.textContent="Name must be 2-41 chars, lowercase letters, digits, and hyphens (must start with letter or digit).";
+      errEl.classList.add("show");
+      return;
+    }
+    if(!display){
+      errEl.textContent="Display name is required.";
+      errEl.classList.add("show");
+      return;
+    }
+    btn.disabled=true;
+    btn.textContent="Creating…";
+    try{
+      var data=await api("POST","/api/v1/admin/tenants",{name:name,display_name:display});
+      createForm.style.display="none";
+      showKeyModal(data.key,"Tenant key generated",display+" is ready. Distribute this key to your agents now — the relay will not show it again.");
+      await Promise.all([loadTenants(),loadStats()]);
+    }catch(e){
+      errEl.textContent=e.message;
+      errEl.classList.add("show");
+    }finally{
+      btn.disabled=false;
+      btn.textContent="Create tenant";
+    }
+  });
+
+  // ── Rotate key ──
+
+  var rotateTargetId=null;
+  document.addEventListener("click",function(e){
+    var btn=e.target.closest("[data-rotate]");
+    if(!btn)return;
+    rotateTargetId=btn.getAttribute("data-rotate");
+    var name=btn.getAttribute("data-name");
+    document.getElementById("rotateName").textContent=name;
+    document.getElementById("rotateErr").classList.remove("show");
+    openModal("rotateModal");
+  });
+  document.getElementById("rotateConfirm").addEventListener("click",async function(){
+    if(!rotateTargetId)return;
+    var btn=document.getElementById("rotateConfirm");
+    var errEl=document.getElementById("rotateErr");
+    errEl.classList.remove("show");
+    btn.disabled=true;
+    btn.textContent="Rotating…";
+    try{
+      var data=await api("POST","/api/v1/admin/tenants/"+encodeURIComponent(rotateTargetId)+"/rotate-key");
+      closeModal("rotateModal");
+      showKeyModal(data.key,"Key rotated","A new key has been generated. The old key is no longer valid — distribute this one to your agents now.");
+      rotateTargetId=null;
+      await Promise.all([loadTenants(),loadStats()]);
+    }catch(e){
+      errEl.textContent=e.message;
+      errEl.classList.add("show");
+    }finally{
+      btn.disabled=false;
+      btn.textContent="Rotate key";
+    }
+  });
+
+  // ── Delete tenant ──
+
+  var deleteTenantTargetId=null;
+  document.addEventListener("click",function(e){
+    var btn=e.target.closest("[data-delete-tenant]");
+    if(!btn)return;
+    deleteTenantTargetId=btn.getAttribute("data-delete-tenant");
+    var name=btn.getAttribute("data-name");
+    document.getElementById("deleteTenantTitle").textContent="Delete tenant \u201C"+name+"\u201D?";
+    document.getElementById("deleteTenantBody").innerHTML="This will revoke the key for <b>"+escapeHtml(name)+"</b> immediately. All agents using this tenant will fail to authenticate on their next request. In-flight messages will be returned to senders on next poll.";
+    document.getElementById("deleteTenantErr").classList.remove("show");
+    openModal("deleteTenantModal");
+  });
+  document.getElementById("deleteTenantConfirm").addEventListener("click",async function(){
+    if(!deleteTenantTargetId)return;
+    var btn=document.getElementById("deleteTenantConfirm");
+    var errEl=document.getElementById("deleteTenantErr");
+    errEl.classList.remove("show");
+    btn.disabled=true;
+    btn.textContent="Deleting…";
+    try{
+      await api("DELETE","/api/v1/admin/tenants/"+encodeURIComponent(deleteTenantTargetId));
+      closeModal("deleteTenantModal");
+      deleteTenantTargetId=null;
+      await Promise.all([loadTenants(),loadAgents(),loadStats()]);
+    }catch(e){
+      errEl.textContent=e.message;
+      errEl.classList.add("show");
+    }finally{
+      btn.disabled=false;
+      btn.textContent="Delete tenant";
+    }
+  });
+
+  // ── Delete agent ──
+
+  var deleteAgentTarget=null;
+  document.addEventListener("click",function(e){
+    var btn=e.target.closest("[data-delete-agent]");
+    if(!btn)return;
+    deleteAgentTarget={
+      id:btn.getAttribute("data-delete-agent"),
+      tenantId:btn.getAttribute("data-tenant"),
+      name:btn.getAttribute("data-name")
+    };
+    document.getElementById("deleteAgentTitle").textContent="Delete agent \u201C"+(deleteAgentTarget.name||"")+"\u201D?";
+    document.getElementById("deleteAgentBody").textContent="This removes the agent record. The agent's pubkey will need to be re-registered to send or poll through this tenant.";
+    document.getElementById("deleteAgentErr").classList.remove("show");
+    openModal("deleteAgentModal");
+  });
+  document.getElementById("deleteAgentConfirm").addEventListener("click",async function(){
+    if(!deleteAgentTarget)return;
+    var btn=document.getElementById("deleteAgentConfirm");
+    var errEl=document.getElementById("deleteAgentErr");
+    errEl.classList.remove("show");
+    btn.disabled=true;
+    btn.textContent="Deleting…";
+    try{
+      await api("DELETE","/api/v1/admin/tenants/"+encodeURIComponent(deleteAgentTarget.tenantId)+"/agents/"+encodeURIComponent(deleteAgentTarget.id));
+      closeModal("deleteAgentModal");
+      deleteAgentTarget=null;
+      await Promise.all([loadAgents(),loadStats()]);
+    }catch(e){
+      errEl.textContent=e.message;
+      errEl.classList.add("show");
+    }finally{
+      btn.disabled=false;
+      btn.textContent="Delete agent";
+    }
+  });
+
+  // ── Key modal ──
+
+  function showKeyModal(key,title,subtitle){
+    document.getElementById("keyTitle").textContent=title;
+    document.getElementById("keySubtitle").textContent=subtitle;
+    document.getElementById("keyCode").textContent=key;
+    openModal("keyModal");
+  }
+  document.getElementById("keyCopy").addEventListener("click",function(){
+    var key=document.getElementById("keyCode").textContent;
+    var btn=this;
+    var done=function(){
+      var orig=btn.textContent;
+      btn.textContent="Copied";
+      setTimeout(function(){btn.textContent=orig},1400);
+    };
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(key).then(done,function(){
+        // Fallback: select the text
+        var r=document.createRange();r.selectNode(document.getElementById("keyCode"));
+        var s=window.getSelection();s.removeAllRanges();s.addRange(r);
+        try{document.execCommand("copy");done()}catch(e){}
+      });
+    }
+  });
+
+  // ── Go ──
+  bootstrap();
+})();
+</script>
+
+</body>
+</html>

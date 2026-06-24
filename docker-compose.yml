@@ -22,5 +22,21 @@ services:
       - MESSAGE_TTL_DAYS=${MESSAGE_TTL_DAYS:-7}
       - MAX_PAYLOAD_BYTES=${MAX_PAYLOAD_BYTES:-1048576}
 
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: agent-relay-admin
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    volumes:
+      - relay-data:/data
+    environment:
+      - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required for admin service}
+      - PORT=3002
+      - HOST=0.0.0.0
+      - DB_PATH=/data/relay.db
+
 volumes:
   relay-data:

@@ -93,6 +93,48 @@ RELAY_AUTH_KEYS='{"mike":"key-mike","alice":"key-alice"}'
 
 ---
 
+## ADMIN — Dashboard & management (optional)
+
+The admin service is a separate container that shares the relay's database. It provides a web dashboard and REST API for managing tenants, auth keys, and agents.
+
+Run it alongside the relay:
+
+```bash
+export ADMIN_KEY="$(openssl rand -hex 32)"
+docker compose up -d
+```
+
+The dashboard is at `http://localhost:3002`. Authenticate with your `ADMIN_KEY`.
+
+### Admin options
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_KEY` | **Yes** | Auth key for the admin dashboard and API. Sent as `X-Admin-Key` header. |
+| `PORT` | No | HTTP listen port (default `3002`) |
+| `HOST` | No | Bind address (default `0.0.0.0`) |
+| `DB_PATH` | No | SQLite database path (default `./relay.db`) |
+
+### Admin API
+
+All admin endpoints require `X-Admin-Key` header. Hosted on port 3002.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/admin/check` | GET | Auth check + stats |
+| `/api/v1/admin/tenants` | GET | List tenants |
+| `/api/v1/admin/tenants` | POST | Create tenant (returns one-time key) |
+| `/api/v1/admin/tenants/:id` | PUT | Update tenant display name |
+| `/api/v1/admin/tenants/:id` | DELETE | Delete tenant + cascaded data |
+| `/api/v1/admin/tenants/:id/rotate-key` | POST | Rotate tenant key (returns new one-time key) |
+| `/api/v1/admin/tenants/:id/keys` | GET | List tenant key metadata |
+| `/api/v1/admin/tenants/:id/agents` | GET | List agents in tenant |
+| `/api/v1/admin/tenants/:id/agents` | POST | Register an agent |
+| `/api/v1/admin/agents` | GET | List all agents across all tenants |
+| `/api/v1/admin/stats` | GET | Aggregate stats |
+
+---
+
 ## MCP — Connect your agents
 
 Each agent runs an MCP server locally that handles all crypto: key generation, encryption, signing, inbox polling, and peer pairing.
@@ -318,8 +360,23 @@ The agent calls `check_inbox` on your schedule — at session start, between tas
 ```bash
 git clone https://github.com/MikeCase/agent-relay
 cd agent-relay
+
+# Relay auth key (agents use this)
 export RELAY_AUTH_KEY="$(openssl rand -hex 32)"
+
+# Admin key (optional — dashboard and tenant management)
+export ADMIN_KEY="$(openssl rand -hex 32)"
+
+# Start both services
 docker compose up -d
+
+# Verify relay
+curl http://localhost:3001/api/v1/health
+# → {"status":"ok","uptime":42,"message_count":0}
+
+# Verify admin
+curl http://localhost:3002/ -H "X-Admin-Key: $ADMIN_KEY"
+# → 200 — admin dashboard
 ```
 
 ### With Caddy (TLS)

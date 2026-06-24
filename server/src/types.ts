@@ -36,3 +36,9 @@ export interface ServerConfig {
   messageTtlDays: number;
   maxPayloadBytes: number;
 }
+
+export interface DbActiveKey {
+  key_hash: string;
+  tenant_id: string;
+  tenant_name: string;
+}

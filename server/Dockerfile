@@ -15,7 +15,8 @@ COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/package.json ./
 COPY --chown=appuser:appgroup public/ ./public/
 USER appuser
-ENV PORT=3001 \
+ENV NODE_ENV=production \
+    PORT=3001 \
     HOST=0.0.0.0 \
     DB_PATH=/data/relay.db \
     MESSAGE_TTL_DAYS=7 \

@@ -1,6 +1,7 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { MessageStore } from "./store.js";
 import type { SendRequest, ServerConfig } from "./types.js";
@@ -38,12 +39,6 @@ function loadConfig(): ServerConfig {
 const config = loadConfig();
 const store = new MessageStore(config.dbPath);
 
-// Build reverse lookup: key → tenant name
-const keyToTenant = new Map<string, string>();
-for (const [tenant, key] of Object.entries(config.tenants)) {
-  keyToTenant.set(key, tenant);
-}
-
 // ── App setup ──────────────────────────────────────────────────────
 const app = express();
 
@@ -53,7 +48,7 @@ app.use(express.json({ limit: config.maxPayloadBytes }));
 // CORS — allow all origins for v0
 app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Relay-Key");
   if (_req.method === "OPTIONS") {
     res.status(204).end();
@@ -74,26 +69,45 @@ app.get("/api/v1/health", (_req: Request, res: Response) => {
   });
 });
 
-// Auth middleware — multi-tenant
+// Auth middleware — multi-tenant (env vars + DB keys)
 function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const hasAuth = Object.keys(config.tenants).length > 0;
+  const hasDbAuth = store.getActiveKeyCount() > 0;
 
-  if (hasAuth) {
+  if (hasAuth || hasDbAuth) {
     const key = req.headers["x-relay-key"] as string | undefined;
     if (!key) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const tenant = keyToTenant.get(key);
-    if (!tenant) {
-      res.status(401).json({ error: "Unauthorized" });
+    // Check env vars first (fast path)
+    const envTenantName = Object.entries(config.tenants).find(([, v]) => v === key)?.[0];
+    if (envTenantName) {
+      res.locals.tenant = envTenantName;
+      res.locals.tenantId = undefined;
+      next();
       return;
     }
-    res.locals.tenant = tenant;
-  } else {
-    // No auth configured — allow all (dev mode)
-    res.locals.tenant = undefined;
+    // Check DB-backed keys
+    if (hasDbAuth) {
+      const hash = createHash("sha256")
+        .update("agent-relay-key-v1:" + key)
+        .digest("hex");
+      const activeKeys = store.getAllActiveKeys();
+      const match = activeKeys.find(k => k.key_hash === hash);
+      if (match) {
+        res.locals.tenant = match.tenant_name;
+        res.locals.tenantId = match.tenant_id;
+        next();
+        return;
+      }
+    }
+    res.status(401).json({ error: "Unauthorized" });
+    return;
   }
+  // No auth configured — dev mode
+  res.locals.tenant = undefined;
+  res.locals.tenantId = undefined;
   next();
 }
 
@@ -133,6 +147,12 @@ app.post("/api/v1/send", (req: Request, res: Response) => {
   }
 
   const id = store.insertMessage(body.sender, body.recipient, body.payload, res.locals.tenant as string | undefined);
+
+  // Track sender last seen
+  if (res.locals.tenantId) {
+    store.updateAgentLastSeen(body.sender);
+  }
+
   res.status(201).json({ id, status: "stored" });
 });
 
@@ -146,6 +166,12 @@ app.get("/api/v1/poll", (req: Request, res: Response) => {
 
   const since = req.query.since as string | undefined;
   const messages = store.pollMessages(recipient, since, res.locals.tenant as string | undefined);
+
+  // Track recipient last seen
+  if (res.locals.tenantId) {
+    store.updateAgentLastSeen(recipient);
+  }
+
   res.status(200).json({ messages });
 });
 
@@ -175,6 +201,15 @@ function shutdown(signal: string): void {
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+
+// ── Global error handler ────────────────────────────────────────────
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  const message = process.env.NODE_ENV === "production"
+    ? "Internal server error"
+    : err.message || "Internal server error";
+  console.error(`[server] Error: ${err.message}`);
+  res.status(500).json({ error: message });
+});
 
 // ── Start ──────────────────────────────────────────────────────────
 app.listen(config.port, config.host, () => {
