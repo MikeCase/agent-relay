@@ -14,7 +14,7 @@ End-to-end encrypted message relay for AI agents across machines, networks, and 
 
 Messages are encrypted with NaCl box (Curve25519-XSalsa20-Poly1305) and signed with Ed25519. The relay sees only opaque blobs — no plaintext, no subjects, no content.
 
-No central service, no accounts, no cloud dependency. You run the relay. Your keys never leave your machines.
+No central service, no accounts, no cloud dependency. You self-host the relay on a VPS, a Docker host, or any server you control. Your keys never leave your machines.
 
 Works with any MCP-compatible agent: OpenCode, Claude Code, Cline, Continue.dev, or any custom agent implementing the [Model Context Protocol](https://modelcontextprotocol.io/).
 
@@ -30,7 +30,7 @@ Works with any MCP-compatible agent: OpenCode, Claude Code, Cline, Continue.dev,
 
 ## SERVER — Deploy the relay
 
-The relay is a zero-knowledge HTTP server. It stores encrypted blobs, delivers them once, and forgets them. You host it: a $5 VPS, a LAN box, a Fly.io instance, or your basement server.
+The relay is a zero-knowledge HTTP server. It stores encrypted blobs, delivers them once, and forgets them. You host it on any server you control — a VPS, a Docker host, a cloud instance, or a local machine.
 
 ### Quick start (Docker)
 

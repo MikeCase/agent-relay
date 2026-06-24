@@ -65,6 +65,15 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 // Serve landing page at /
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// GET /api/v1/health — public, no auth required (used by Docker HEALTHCHECK)
+app.get("/api/v1/health", (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime(),
+    message_count: store.getMessageCount(),
+  });
+});
+
 // Auth middleware — multi-tenant
 function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const hasAuth = Object.keys(config.tenants).length > 0;
@@ -138,15 +147,6 @@ app.get("/api/v1/poll", (req: Request, res: Response) => {
   const since = req.query.since as string | undefined;
   const messages = store.pollMessages(recipient, since, res.locals.tenant as string | undefined);
   res.status(200).json({ messages });
-});
-
-// GET /api/v1/health
-app.get("/api/v1/health", (_req: Request, res: Response) => {
-  res.status(200).json({
-    status: "ok",
-    uptime: process.uptime(),
-    message_count: store.getMessageCount(),
-  });
 });
 
 // ── Periodic cleanup ───────────────────────────────────────────────
