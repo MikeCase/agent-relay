@@ -39,21 +39,32 @@ function loadConfig(): ServerConfig {
 const config = loadConfig();
 const store = new MessageStore(config.dbPath);
 
-// Bootstrap: generate first admin key + tenant if none configured
-const hasEnvAuth = Object.keys(config.tenants).length > 0;
-if (!hasEnvAuth && store.isTenantsEmpty()) {
-  const boot = store.generateBootstrap();
+// Ensure a bootstrap admin key always exists (so admin dashboard works without ADMIN_KEY env)
+const adminKey = store.ensureBootstrapAdminKey();
+if (adminKey) {
   console.log("");
   console.log("╔══════════════════════════════════════════════════════════════╗");
-  console.log("║              FIRST-TIME SETUP — SAVE THESE                  ║");
+  console.log("║              ADMIN KEY (auto-generated)                     ║");
   console.log("║                                                              ║");
-  console.log(`║  Admin key:  ${boot.adminKey}   ║`);
-  console.log(`║  Tenant key: ${boot.tenantName} → ${boot.tenantKey}   ║`);
+  console.log(`║  ${adminKey}  ║`);
   console.log("║                                                              ║");
-  console.log("║  Open the admin dashboard → log in with the admin key →      ║");
-  console.log("║  rename the tenant → configure agents with the tenant key.   ║");
-  console.log("║                                                              ║");
+  console.log("║  Use this to log into the admin dashboard.                   ║");
   console.log("║  Set ADMIN_KEY env var to use a fixed key instead.           ║");
+  console.log("╚══════════════════════════════════════════════════════════════╝");
+  console.log("");
+}
+
+// Bootstrap: generate first tenant if none configured and no env var auth
+const hasEnvAuth = Object.keys(config.tenants).length > 0;
+if (!hasEnvAuth && store.isTenantsEmpty()) {
+  const boot = store.generateBootstrapTenant();
+  console.log("");
+  console.log("╔══════════════════════════════════════════════════════════════╗");
+  console.log("║              TENANT KEY (auto-generated)                    ║");
+  console.log("║                                                              ║");
+  console.log(`║  ${boot.tenantName} → ${boot.tenantKey}  ║`);
+  console.log("║                                                              ║");
+  console.log("║  Configure your agents with this key.                        ║");
   console.log("╚══════════════════════════════════════════════════════════════╝");
   console.log("");
 }

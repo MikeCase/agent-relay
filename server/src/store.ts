@@ -191,15 +191,20 @@ export class MessageStore {
     return row.count === 0;
   }
 
-  private hashKey(key: string): string {
+  hashKey(key: string): string {
     return createHash("sha256").update("agent-relay-key-v1:" + key).digest("hex");
   }
 
-  generateBootstrap(): { adminKey: string; tenantKey: string; tenantName: string } {
+  /** Ensure a bootstrap admin key exists in the DB. Returns the plaintext key if newly generated, null if one already existed. */
+  ensureBootstrapAdminKey(): string | null {
+    if (this.getSetting("bootstrap.admin_key_hash")) return null;
     const adminKey = randomBytes(32).toString("hex");
     const adminKeyHash = this.hashKey(adminKey);
     this.setSetting("bootstrap.admin_key_hash", adminKeyHash);
+    return adminKey;
+  }
 
+  generateBootstrapTenant(): { tenantKey: string; tenantName: string } {
     const tenantName = "default";
     const tenantDisplay = "Default";
     const tenantKey = randomBytes(32).toString("hex");
@@ -209,7 +214,7 @@ export class MessageStore {
     const tenantId = this.createBootstrapTenant(tenantName, tenantDisplay);
     this.createBootstrapKey(tenantId, tenantKeyHash, tenantKeyPrefix);
 
-    return { adminKey, tenantKey, tenantName: tenantDisplay };
+    return { tenantKey, tenantName: tenantDisplay };
   }
 
   private createBootstrapTenant(name: string, displayName: string): string {

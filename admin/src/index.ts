@@ -17,6 +17,23 @@ const ADMIN_CORS_ORIGIN = process.env.ADMIN_CORS_ORIGIN || "http://localhost:300
 
 const store = new AdminStore(DB_PATH);
 
+// Generate bootstrap admin key if none exists (so admin works without ADMIN_KEY env)
+if (!ADMIN_KEY && !store.hasBootstrapAdminKey()) {
+  const key = generateKey();
+  const hash = hashKey(key);
+  store.setSetting("bootstrap.admin_key_hash", hash);
+  console.log("");
+  console.log("╔══════════════════════════════════════════════════════════════╗");
+  console.log("║              ADMIN KEY (auto-generated)                     ║");
+  console.log("║                                                              ║");
+  console.log(`║  ${key}  ║`);
+  console.log("║                                                              ║");
+  console.log("║  Use this to log into the admin dashboard.                   ║");
+  console.log("║  Set ADMIN_KEY env var to use a fixed key instead.           ║");
+  console.log("╚══════════════════════════════════════════════════════════════╝");
+  console.log("");
+}
+
 // Auto-migrate tenants from RELAY_AUTH_KEYS env var on startup
 if (ADMIN_KEY && process.env.ADMIN_MIGRATE !== "false") {
   const result = store.migrateFromEnv(process.env.RELAY_AUTH_KEYS);
