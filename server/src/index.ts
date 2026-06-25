@@ -180,7 +180,7 @@ app.post("/api/v1/send", (req: Request, res: Response) => {
 
   // Track sender last seen
   if (res.locals.tenantId) {
-    store.upsertAgent(res.locals.tenantId, body.sender);
+    store.upsertAgent(res.locals.tenantId, body.sender, body.sender_alias);
   }
 
   res.status(201).json({ id, status: "stored" });

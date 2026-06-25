@@ -20,15 +20,9 @@ import type {
   CheckInboxInput,
 } from "./types.js";
 
-// ---- Config directory ----
-
-const CONFIG_DIR = path.join(
-  process.env.HOME || process.env.USERPROFILE || "~",
-  ".config",
-  "agent-relay",
-);
-const KEYPAIR_PATH = path.join(CONFIG_DIR, "keypair.json");
-const PEERS_PATH = path.join(CONFIG_DIR, "peers.json");
+// ---- Config directory (moved below env vars) ----
+// (CONFIG_DIR, KEYPAIR_PATH, PEERS_PATH defined after AGENT_ID
+//  below so they can use it for per-agent namespacing)
 
 // ---- Module-level state ----
 
@@ -132,6 +126,16 @@ if (!AGENT_ID) {
 
 // Narrowed alias — AGENT_ID is string after the guard above
 const agentId: string = AGENT_ID;
+
+// Config paths — namespaced by AGENT_ID so multiple agents on one machine don't collide
+const CONFIG_DIR = path.join(
+  process.env.HOME || process.env.USERPROFILE || "~",
+  ".config",
+  "agent-relay",
+  agentId,
+);
+const KEYPAIR_PATH = path.join(CONFIG_DIR, "keypair.json");
+const PEERS_PATH = path.join(CONFIG_DIR, "peers.json");
 
 const relayClient = new RelayClient({
   relayUrl: RELAY_URL,
@@ -314,6 +318,7 @@ async function handleSendMessage(
     keyPair.publicKey,
     recipientPubKeyB64,
     payloadB64,
+    agentId,
   );
 
   return {
@@ -538,6 +543,7 @@ async function handleAgentPair(
             keyPair.publicKey,
             peer_alias,
             payloadB64,
+            agentId,
           );
 
           // Track this outbound pairing so we only accept ack from this peer
@@ -721,7 +727,7 @@ async function sendPairingAck(
 
   const payloadB64 = util.encodeBase64(wireBlob);
 
-  await relayClient.send(keyPair.publicKey, recipientPubKeyB64, payloadB64);
+  await relayClient.send(keyPair.publicKey, recipientPubKeyB64, payloadB64, agentId);
 }
 
 // ---- Start ----

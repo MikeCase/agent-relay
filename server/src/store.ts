@@ -177,12 +177,15 @@ export class MessageStore {
   }
 
   /** Insert or update an agent record and set last_seen_at to now. */
-  upsertAgent(tenantId: string, pubkey: string): void {
+  upsertAgent(tenantId: string, pubkey: string, displayName?: string): void {
+    const name = displayName || pubkey.substring(0, 16);
     this.db.prepare(`
       INSERT INTO agents (id, tenant_id, pubkey, display_name, last_seen_at)
       VALUES (?, ?, ?, ?, datetime('now'))
-      ON CONFLICT(tenant_id, pubkey) DO UPDATE SET last_seen_at = datetime('now')
-    `).run(uuidv4(), tenantId, pubkey, pubkey.substring(0, 16));
+      ON CONFLICT(tenant_id, pubkey) DO UPDATE SET
+        last_seen_at = datetime('now'),
+        display_name = COALESCE(?, display_name)
+    `).run(uuidv4(), tenantId, pubkey, name, displayName || null);
   }
 
   close(): void {

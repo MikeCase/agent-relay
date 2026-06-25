@@ -2,6 +2,7 @@ export interface SendRequest {
   sender: string;
   recipient: string;
   payload: string;
+  sender_alias?: string;
 }
 
 export interface SendResponse {

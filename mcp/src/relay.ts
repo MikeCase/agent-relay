@@ -28,8 +28,10 @@ export class RelayClient {
     sender: string,
     recipient: string,
     payload: string,
+    senderAlias?: string,
   ): Promise<string> {
-    const body = { sender, recipient, payload };
+    const body: Record<string, string> = { sender, recipient, payload };
+    if (senderAlias) body.sender_alias = senderAlias;
 
     const response = await this.requestWithRetry("POST", "/api/v1/send", body);
 
