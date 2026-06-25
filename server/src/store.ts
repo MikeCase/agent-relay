@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { v4 as uuidv4 } from "uuid";
+import { createHash, randomBytes } from "node:crypto";
 import type { StoredMessage, DbActiveKey } from "./types.js";
 
 export class MessageStore {
@@ -67,6 +68,14 @@ export class MessageStore {
       );
       CREATE INDEX IF NOT EXISTS idx_agents_tenant ON agents(tenant_id);
       CREATE INDEX IF NOT EXISTS idx_agents_pubkey ON agents(pubkey);
+    `);
+
+    // Settings table (v0.3) — key-value store
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
   }
 
@@ -162,5 +171,55 @@ export class MessageStore {
 
   close(): void {
     this.db.close();
+  }
+
+  // ── Settings ──
+
+  getSetting(key: string): string | undefined {
+    const row = this.db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+    return row?.value;
+  }
+
+  setSetting(key: string, value: string): void {
+    this.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
+  }
+
+  // ── Bootstrap auth generation ──
+
+  isTenantsEmpty(): boolean {
+    const row = this.db.prepare("SELECT COUNT(*) as count FROM tenants").get() as { count: number };
+    return row.count === 0;
+  }
+
+  private hashKey(key: string): string {
+    return createHash("sha256").update("agent-relay-key-v1:" + key).digest("hex");
+  }
+
+  generateBootstrap(): { adminKey: string; tenantKey: string; tenantName: string } {
+    const adminKey = randomBytes(32).toString("hex");
+    const adminKeyHash = this.hashKey(adminKey);
+    this.setSetting("bootstrap.admin_key_hash", adminKeyHash);
+
+    const tenantName = "default";
+    const tenantDisplay = "Default";
+    const tenantKey = randomBytes(32).toString("hex");
+    const tenantKeyHash = this.hashKey(tenantKey);
+    const tenantKeyPrefix = tenantKey.substring(0, 8);
+
+    const tenantId = this.createBootstrapTenant(tenantName, tenantDisplay);
+    this.createBootstrapKey(tenantId, tenantKeyHash, tenantKeyPrefix);
+
+    return { adminKey, tenantKey, tenantName: tenantDisplay };
+  }
+
+  private createBootstrapTenant(name: string, displayName: string): string {
+    const id = uuidv4();
+    this.db.prepare("INSERT INTO tenants (id, name, display_name) VALUES (?, ?, ?)").run(id, name, displayName);
+    return id;
+  }
+
+  private createBootstrapKey(tenantId: string, keyHash: string, keyPrefix: string): void {
+    this.db.prepare("INSERT INTO tenant_keys (id, tenant_id, key_hash, key_prefix) VALUES (?, ?, ?, ?)")
+      .run(uuidv4(), tenantId, keyHash, keyPrefix);
   }
 }

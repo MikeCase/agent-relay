@@ -55,20 +55,34 @@ app.get("/", (_req: Request, res: Response) => {
 // Admin auth middleware
 function adminAuth(req: Request, res: Response, next: NextFunction): void {
   const key = req.headers["x-admin-key"] as string | undefined;
-  if (!key || !ADMIN_KEY || key.length !== ADMIN_KEY.length) {
+  if (!key) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  try {
-    if (!timingSafeEqual(Buffer.from(key), Buffer.from(ADMIN_KEY))) {
+  // Check env ADMIN_KEY first
+  if (ADMIN_KEY) {
+    if (key.length !== ADMIN_KEY.length) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-  } catch {
-    res.status(401).json({ error: "Unauthorized" });
+    try {
+      if (!timingSafeEqual(Buffer.from(key), Buffer.from(ADMIN_KEY))) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      next();
+      return;
+    } catch {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+  }
+  // Fall back to bootstrap admin key in DB
+  if (store.checkBootstrapAdminKey(key)) {
+    next();
     return;
   }
-  next();
+  res.status(401).json({ error: "Unauthorized" });
 }
 
 // ── Admin API routes ──
@@ -262,7 +276,8 @@ router.post("/migrate", (_req: Request, res: Response) => {
   res.json(result);
 });
 
-if (ADMIN_KEY) {
+const hasAdmin = ADMIN_KEY || store.hasBootstrapAdminKey();
+if (hasAdmin) {
   app.use("/api/v1/admin", router);
 } else {
   app.use("/api/v1/admin", (_req, res) => res.status(404).json({ error: "Not found" }));
@@ -283,4 +298,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(PORT, HOST, () => {
   console.log(`[admin] Agent Relay Admin listening on ${HOST}:${PORT}`);
+  if (!ADMIN_KEY && store.hasBootstrapAdminKey()) {
+    console.log("[admin] Using auto-generated admin key from database. Set ADMIN_KEY env var for a fixed key.");
+  }
 });

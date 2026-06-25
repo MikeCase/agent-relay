@@ -39,6 +39,25 @@ function loadConfig(): ServerConfig {
 const config = loadConfig();
 const store = new MessageStore(config.dbPath);
 
+// Bootstrap: generate first admin key + tenant if none configured
+const hasEnvAuth = Object.keys(config.tenants).length > 0;
+if (!hasEnvAuth && store.isTenantsEmpty()) {
+  const boot = store.generateBootstrap();
+  console.log("");
+  console.log("╔══════════════════════════════════════════════════════════════╗");
+  console.log("║              FIRST-TIME SETUP — SAVE THESE                  ║");
+  console.log("║                                                              ║");
+  console.log(`║  Admin key:  ${boot.adminKey}   ║`);
+  console.log(`║  Tenant key: ${boot.tenantName} → ${boot.tenantKey}   ║`);
+  console.log("║                                                              ║");
+  console.log("║  Open the admin dashboard → log in with the admin key →      ║");
+  console.log("║  rename the tenant → configure agents with the tenant key.   ║");
+  console.log("║                                                              ║");
+  console.log("║  Set ADMIN_KEY env var to use a fixed key instead.           ║");
+  console.log("╚══════════════════════════════════════════════════════════════╝");
+  console.log("");
+}
+
 // ── App setup ──────────────────────────────────────────────────────
 const app = express();
 

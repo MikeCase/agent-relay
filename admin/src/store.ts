@@ -45,6 +45,10 @@ export class AdminStore {
       );
       CREATE INDEX IF NOT EXISTS idx_agents_tenant ON agents(tenant_id);
       CREATE INDEX IF NOT EXISTS idx_agents_pubkey ON agents(pubkey);
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
   }
 
@@ -184,6 +188,30 @@ export class AdminStore {
 
   close(): void {
     this.db.close();
+  }
+
+  // ── Settings ──
+
+  getSetting(key: string): string | undefined {
+    const row = this.db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+    return row?.value;
+  }
+
+  setSetting(key: string, value: string): void {
+    this.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
+  }
+
+  // ── Bootstrap admin key auth ──
+
+  hasBootstrapAdminKey(): boolean {
+    const val = this.getSetting("bootstrap.admin_key_hash");
+    return val !== undefined && val.length > 0;
+  }
+
+  checkBootstrapAdminKey(key: string): boolean {
+    const storedHash = this.getSetting("bootstrap.admin_key_hash");
+    if (!storedHash) return false;
+    return hashKey(key) === storedHash;
   }
 }
 

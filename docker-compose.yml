@@ -28,12 +28,15 @@ services:
       dockerfile: Dockerfile
     container_name: agent-relay-admin
     restart: unless-stopped
+    depends_on:
+      relay:
+        condition: service_started
     ports:
-      - "3002:3002"
+      - "3003:3002"
     volumes:
       - relay-data:/data
     environment:
-      - ADMIN_KEY=${ADMIN_KEY:?ADMIN_KEY is required for admin service}
+      - ADMIN_KEY=${ADMIN_KEY:-}
       - PORT=3002
       - HOST=0.0.0.0
       - DB_PATH=/data/relay.db
