@@ -97,20 +97,37 @@ RELAY_AUTH_KEYS='{"mike":"key-mike","alice":"key-alice"}'
 
 The admin service is a separate container that shares the relay's database. It provides a web dashboard and REST API for managing tenants, auth keys, and agents.
 
-Run it alongside the relay:
+### Run alongside the relay (merged)
+
+From the project root, merge both compose files:
 
 ```bash
 export ADMIN_KEY="$(openssl rand -hex 32)"
+docker compose -f docker-compose.yml -f admin/docker-compose.yml up -d
+```
+
+The dashboard is at `http://localhost:3003`. Authenticate with your `ADMIN_KEY`.
+
+### Run standalone (separate volume)
+
+If the relay is already running, start the admin on its own:
+
+```bash
+cd admin
 docker compose up -d
 ```
 
-The dashboard is at `http://localhost:3002`. Authenticate with your `ADMIN_KEY`.
+Both containers must mount the same Docker volume so the admin can read the relay's SQLite database. Use `-p agent-relay` to match the project name if running from a different directory:
+
+```bash
+docker compose -p agent-relay -f admin/docker-compose.yml up -d
+```
 
 ### Admin options
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ADMIN_KEY` | **Yes** | Auth key for the admin dashboard and API. Sent as `X-Admin-Key` header. |
+| `ADMIN_KEY` | No | Auth key for the dashboard and API. Falls back to auto-generated bootstrap key from DB. |
 | `PORT` | No | HTTP listen port (default `3002`) |
 | `HOST` | No | Bind address (default `0.0.0.0`) |
 | `DB_PATH` | No | SQLite database path (default `./relay.db`) |
@@ -361,21 +378,24 @@ The agent calls `check_inbox` on your schedule — at session start, between tas
 git clone https://github.com/MikeCase/agent-relay
 cd agent-relay
 
-# Relay auth key (agents use this)
-export RELAY_AUTH_KEY="$(openssl rand -hex 32)"
-
-# Admin key (optional — dashboard and tenant management)
-export ADMIN_KEY="$(openssl rand -hex 32)"
-
-# Start both services
+# Start the relay (with or without RELAY_AUTH_KEY — auto-generates if unset)
 docker compose up -d
 
-# Verify relay
+# Verify
 curl http://localhost:3001/api/v1/health
 # → {"status":"ok","uptime":42,"message_count":0}
 
-# Verify admin
-curl http://localhost:3002/ -H "X-Admin-Key: $ADMIN_KEY"
+# (Optional) Start the admin dashboard alongside
+docker compose -f docker-compose.yml -f admin/docker-compose.yml up -d
+
+# The admin dashboard is at http://localhost:3003
+# On first boot, the admin key is printed to the admin container's logs:
+docker logs agent-relay-admin 2>&1 | grep -A1 "ADMIN KEY"
+
+# Or set ADMIN_KEY to use a fixed key:
+# export ADMIN_KEY="$(openssl rand -hex 32)"
+# docker compose -f docker-compose.yml -f admin/docker-compose.yml up -d
+```
 # → 200 — admin dashboard
 ```
 
