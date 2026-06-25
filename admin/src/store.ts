@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { v4 as uuidv4 } from "uuid";
+import { hashKey } from "./auth.js";
 import type { TenantRow, TenantResponse, AgentRow, TenantKeyRow } from "./types.js";
 
 export class AdminStore {
@@ -80,6 +81,9 @@ export class AdminStore {
   }
 
   deleteTenant(id: string): boolean {
+    const t = this.getTenant(id);
+    if (!t) return false;
+    this.db.prepare("DELETE FROM messages WHERE tenant = ?").run(t.name);
     return this.db.prepare("DELETE FROM tenants WHERE id = ?").run(id).changes > 0;
   }
 
@@ -133,13 +137,14 @@ export class AdminStore {
     `).all() as any[];
   }
 
-  updateAgent(agentId: string, displayName: string): AgentRow | undefined {
-    this.db.prepare("UPDATE agents SET display_name = ? WHERE id = ?").run(displayName, agentId);
-    return this.db.prepare("SELECT * FROM agents WHERE id = ?").get(agentId) as AgentRow | undefined;
+  updateAgent(agentId: string, tenantId: string, displayName: string): AgentRow | undefined {
+    this.db.prepare("UPDATE agents SET display_name = ? WHERE id = ? AND tenant_id = ?")
+      .run(displayName, agentId, tenantId);
+    return this.db.prepare("SELECT * FROM agents WHERE id = ? AND tenant_id = ?").get(agentId, tenantId) as AgentRow | undefined;
   }
 
-  deleteAgent(agentId: string): boolean {
-    return this.db.prepare("DELETE FROM agents WHERE id = ?").run(agentId).changes > 0;
+  deleteAgent(agentId: string, tenantId: string): boolean {
+    return this.db.prepare("DELETE FROM agents WHERE id = ? AND tenant_id = ?").run(agentId, tenantId).changes > 0;
   }
 
   getAgentCount(): number {
@@ -148,6 +153,33 @@ export class AdminStore {
 
   getMessageCount(): number {
     return (this.db.prepare("SELECT COUNT(*) as count FROM messages").get() as any).count;
+  }
+
+  migrateFromEnv(relayAuthKeys: string | undefined): { migrated: number; skipped: number } {
+    if (!relayAuthKeys) return { migrated: 0, skipped: 0 };
+    let parsed: Record<string, string>;
+    try {
+      parsed = JSON.parse(relayAuthKeys);
+    } catch {
+      return { migrated: 0, skipped: 0 };
+    }
+    let migrated = 0;
+    let skipped = 0;
+    for (const [name, key] of Object.entries(parsed)) {
+      if (typeof name !== "string" || typeof key !== "string") { skipped++; continue; }
+      const existing = this.getTenantByName(name);
+      if (existing) { skipped++; continue; }
+      const tenant = this.createTenant(name, name);
+      const keyHash = hashKey(key);
+      const keyPrefix = key.substring(0, 8);
+      this.createTenantKey(tenant.id, keyHash, keyPrefix);
+      migrated++;
+    }
+    return { migrated, skipped };
+  }
+
+  isTenantsEmpty(): boolean {
+    return (this.db.prepare("SELECT COUNT(*) as count FROM tenants").get() as any).count === 0;
   }
 
   close(): void {

@@ -444,7 +444,7 @@ body.admin-disabled .login-overlay{display:grid}
     <span>Agent Relay &middot; admin dashboard</span>
     <div class="footer-links">
       <a href="/">Public site</a>
-      <a href="/api/v1/health" target="_blank" rel="noopener">Health</a>
+      <span style="color:var(--text-3)">Health</span>
       <a href="https://fj.splaq.us/splaq/agent-relay" target="_blank" rel="noopener">Source</a>
     </div>
   </div>
@@ -499,7 +499,10 @@ body.admin-disabled .login-overlay{display:grid}
   // ── API helper ──
   // Adds X-Admin-Key header. On 401 → lock. On 404 → admin disabled. On 5xx → throw with message.
   async function api(method,path,body){
-    var headers={"X-Admin-Key":state.adminKey};
+    var headers={};
+    if(path.startsWith("/api/v1/admin/") && state.adminKey){
+      headers["X-Admin-Key"]=state.adminKey;
+    }
     if(body!==undefined)headers["Content-Type"]="application/json";
     var res;
     try{
