@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { v4 as uuidv4 } from "uuid";
+import { timingSafeEqual } from "node:crypto";
 import { hashKey } from "./auth.js";
 import type { TenantRow, TenantResponse, AgentRow, TenantKeyRow } from "./types.js";
 
@@ -211,7 +212,11 @@ export class AdminStore {
   checkBootstrapAdminKey(key: string): boolean {
     const storedHash = this.getSetting("bootstrap.admin_key_hash");
     if (!storedHash) return false;
-    return hashKey(key) === storedHash;
+    const inputHash = hashKey(key);
+    const inputBuf = Buffer.from(inputHash, "utf-8");
+    const storedBuf = Buffer.from(storedHash, "utf-8");
+    if (inputBuf.length !== storedBuf.length) return false;
+    return timingSafeEqual(inputBuf, storedBuf);
   }
 }
 

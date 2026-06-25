@@ -10,3 +10,8 @@ dist/
 AGENTS.md
 CLAUDE.md
 opencode.jsonc
+
+# Stale admin files moved out of server/public/
+admin/stale-admin.html
+admin/stale-admin-design-spec.html
+admin/stale-screenshots/

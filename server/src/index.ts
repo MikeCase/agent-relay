@@ -71,6 +71,7 @@ if (!hasEnvAuth && store.isTenantsEmpty()) {
 
 // ── App setup ──────────────────────────────────────────────────────
 const app = express();
+app.disable("x-powered-by");
 
 // JSON body parser with size limit
 app.use(express.json({ limit: config.maxPayloadBytes }));

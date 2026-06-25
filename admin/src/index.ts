@@ -47,7 +47,10 @@ function isValidUUID(s: string): boolean {
 }
 
 const app = express();
+app.disable("x-powered-by");
 app.use(express.json({ limit: "100kb" }));
+
+
 
 // CORS
 app.use((_req: Request, res: Response, next: NextFunction) => {
@@ -78,10 +81,6 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   }
   // Check env ADMIN_KEY first
   if (ADMIN_KEY) {
-    if (key.length !== ADMIN_KEY.length) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
     try {
       if (!timingSafeEqual(Buffer.from(key), Buffer.from(ADMIN_KEY))) {
         res.status(401).json({ error: "Unauthorized" });
