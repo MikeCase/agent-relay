@@ -421,9 +421,10 @@ async function handleCheckInbox(
       }
 
       if (payload.type === "pairing_ack") {
-        // Only accept ack if we actually sent a pairing request to this peer
-        if (pendingOutboundPairings.has(senderB64)) {
-          pendingOutboundPairings.delete(senderB64);
+        // Accept ack if peer isn't already known.
+        // The signature verification above ensures this ack is authentic.
+        // No in-memory guard needed — that state can be lost on restart.
+        if (!peers.peers[senderB64]) {
           try {
             const ackBody = JSON.parse(payload.body) as {
               alias?: string;
@@ -435,10 +436,6 @@ async function handleCheckInbox(
             peers.peers[senderB64] = payload.from;
             savePeers(peers);
           }
-        } else {
-          console.warn(
-            `[agent-relay] Unsolicited pairing_ack from ${senderB64} ignored`,
-          );
         }
         continue;
       }

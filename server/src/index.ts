@@ -114,7 +114,7 @@ function authMiddleware(req: Request, res: Response, next: NextFunction): void {
     const envTenantName = Object.entries(config.tenants).find(([, v]) => v === key)?.[0];
     if (envTenantName) {
       res.locals.tenant = envTenantName;
-      res.locals.tenantId = undefined;
+      res.locals.tenantId = store.ensureTenant(envTenantName);
       next();
       return;
     }
@@ -180,7 +180,7 @@ app.post("/api/v1/send", (req: Request, res: Response) => {
 
   // Track sender last seen
   if (res.locals.tenantId) {
-    store.updateAgentLastSeen(body.sender);
+    store.upsertAgent(res.locals.tenantId, body.sender);
   }
 
   res.status(201).json({ id, status: "stored" });
@@ -199,7 +199,7 @@ app.get("/api/v1/poll", (req: Request, res: Response) => {
 
   // Track recipient last seen
   if (res.locals.tenantId) {
-    store.updateAgentLastSeen(recipient);
+    store.upsertAgent(res.locals.tenantId, recipient);
   }
 
   res.status(200).json({ messages });

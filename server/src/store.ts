@@ -163,10 +163,26 @@ export class MessageStore {
 
   // ── Agent tracking ──
 
-  updateAgentLastSeen(pubkey: string): void {
-    this.db.prepare(
-      "UPDATE agents SET last_seen_at = datetime('now') WHERE pubkey = ?"
-    ).run(pubkey);
+  getTenantByName(name: string): { id: string } | undefined {
+    return this.db.prepare("SELECT id FROM tenants WHERE name = ?").get(name) as any;
+  }
+
+  /** Ensure a tenant exists (from env var auth). Returns tenant ID. */
+  ensureTenant(name: string): string {
+    const existing = this.getTenantByName(name);
+    if (existing) return existing.id;
+    const id = uuidv4();
+    this.db.prepare("INSERT INTO tenants (id, name, display_name) VALUES (?, ?, ?)").run(id, name, name);
+    return id;
+  }
+
+  /** Insert or update an agent record and set last_seen_at to now. */
+  upsertAgent(tenantId: string, pubkey: string): void {
+    this.db.prepare(`
+      INSERT INTO agents (id, tenant_id, pubkey, display_name, last_seen_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(tenant_id, pubkey) DO UPDATE SET last_seen_at = datetime('now')
+    `).run(uuidv4(), tenantId, pubkey, pubkey.substring(0, 16));
   }
 
   close(): void {
