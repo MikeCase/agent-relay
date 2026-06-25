@@ -421,6 +421,28 @@ body.admin-disabled .login-overlay{display:grid}
   </div>
 </div>
 
+<!-- Rename tenant -->
+<div class="modal-backdrop" id="renameModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="renameTitle">Rename tenant</h3>
+      <button class="modal-close" data-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:14px">Change the display name for <b id="renameCurrent">&hellip;</b>.</p>
+      <div class="field">
+        <label for="renameInput">Display name</label>
+        <input type="text" class="input" id="renameInput" placeholder="New display name" autocomplete="off">
+      </div>
+      <div class="modal-err" id="renameErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+      <button class="btn btn-primary" id="renameConfirm">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Delete agent confirm -->
 <div class="modal-backdrop" id="deleteAgentModal">
   <div class="modal">
@@ -657,6 +679,7 @@ body.admin-disabled .login-overlay{display:grid}
         +'<td>'+escapeHtml(t.message_count||0)+'</td>'
         +'<td><span class="mono-muted" style="color:var(--text-3)">'+escapeHtml(formatDate(t.created_at))+'</span></td>'
         +'<td><div class="row-actions">'
+          +'<button class="btn btn-ghost btn-sm btn-icon" data-rename="'+escapeHtml(t.id)+'" data-name="'+escapeHtml(t.display_name||t.name)+'">Rename</button>'
           +'<button class="btn btn-ghost btn-sm btn-icon" data-rotate="'+escapeHtml(t.id)+'" data-name="'+escapeHtml(t.name)+'">Rotate</button>'
           +'<button class="btn btn-danger btn-sm btn-icon" data-delete-tenant="'+escapeHtml(t.id)+'" data-name="'+escapeHtml(t.name)+'">Delete</button>'
         +'</div></td>'
@@ -809,6 +832,50 @@ body.admin-disabled .login-overlay{display:grid}
     }finally{
       btn.disabled=false;
       btn.textContent="Rotate key";
+    }
+  });
+
+  // ── Rename tenant ──
+
+  var renameTargetId=null;
+  document.addEventListener("click",function(e){
+    var btn=e.target.closest("[data-rename]");
+    if(!btn)return;
+    renameTargetId=btn.getAttribute("data-rename");
+    var name=btn.getAttribute("data-name");
+    document.getElementById("renameCurrent").textContent=name;
+    document.getElementById("renameInput").value=name;
+    document.getElementById("renameErr").classList.remove("show");
+    openModal("renameModal");
+    setTimeout(function(){document.getElementById("renameInput").focus()},50);
+  });
+  document.getElementById("renameInput").addEventListener("keydown",function(e){
+    if(e.key==="Enter")document.getElementById("renameConfirm").click();
+  });
+  document.getElementById("renameConfirm").addEventListener("click",async function(){
+    if(!renameTargetId)return;
+    var name=document.getElementById("renameInput").value.trim();
+    var btn=document.getElementById("renameConfirm");
+    var errEl=document.getElementById("renameErr");
+    errEl.classList.remove("show");
+    if(!name){
+      errEl.textContent="Display name is required.";
+      errEl.classList.add("show");
+      return;
+    }
+    btn.disabled=true;
+    btn.textContent="Saving…";
+    try{
+      await api("PUT","/api/v1/admin/tenants/"+encodeURIComponent(renameTargetId),{display_name:name});
+      closeModal("renameModal");
+      renameTargetId=null;
+      await Promise.all([loadTenants(),loadAgents(),loadStats()]);
+    }catch(e){
+      errEl.textContent=e.message;
+      errEl.classList.add("show");
+    }finally{
+      btn.disabled=false;
+      btn.textContent="Save";
     }
   });
 
